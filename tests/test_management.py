@@ -24,7 +24,7 @@ def wait(client, job, status):
 def test_management_and_risk(db):
     with TestClient(app) as client:
         base = "/api/v1"
-        assert client.get("/").status_code == 200
+        assert client.get("/docs").status_code == 200
         assert (
             client.post(
                 base + "/resources", json={"key": "op_branch", "kind": "operational_risk"}
