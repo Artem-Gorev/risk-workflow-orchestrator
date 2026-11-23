@@ -4,5 +4,3 @@
 !alembic.ini
 !requirements.txt
 **/__pycache__
-!frontend
-!frontend/**
