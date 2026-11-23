@@ -71,11 +71,6 @@ def _ensure_utc(value: dt.datetime | None) -> dt.datetime | None:
 
 
 class OrchestratorCore:
-    """
-    Ядро оркестратора (Блок 03).
-    Инкапсулирует хранение, очередь, блокировки ресурсов, журнал событий и переходы состояний.
-    """
-
     def __init__(
         self,
         db: Database,
@@ -206,10 +201,6 @@ class OrchestratorCore:
         )
 
     def submit_job(self, request: SubmitJobRequest) -> SubmitJobResult:
-        """
-        Принимает ручную или регламентную заявку, валидирует процесс и дату,
-        проверяет идемпотентность, вычисляет доступы и ставит задачу в QUEUED.
-        """
         try:
             calc_date = parse_strict_iso_date(request.calculation_date)
         except ValueError as exc:

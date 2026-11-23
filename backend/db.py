@@ -12,13 +12,6 @@ from orchestrator_core.models import Base, OrchestratorControl
 
 
 class Database:
-    """
-    Обёртка над SQLAlchemy Engine/Session.
-    В PostgreSQL сериализует критические транзакции через SELECT ... FOR UPDATE
-    на строке orchestrator_control(id=1). В SQLite (для локальных unit-тестов)
-    дополнительно использует threading.RLock.
-    """
-
     def __init__(self, database_url: str, *, echo: bool = False) -> None:
         engine_kwargs: dict = {
             "echo": echo,
@@ -40,7 +33,6 @@ class Database:
         self._sqlite_lock = threading.RLock()
 
     def create_schema_and_bootstrap(self) -> None:
-        """Создаёт таблицы (для тестов / dev) и гарантирует наличие управляющей строки."""
         Base.metadata.create_all(self.engine)
         self.ensure_control_row()
 
@@ -63,10 +55,6 @@ class Database:
 
     @contextmanager
     def serialized_transaction(self) -> Iterator[tuple[Session, OrchestratorControl]]:
-        """
-        Короткая ACID-транзакция с эксклюзивной блокировкой управляющей строки.
-        Гарантирует отсутствие гонок при проверке/резервировании ресурсов, отмене и завершении.
-        """
         if self._is_sqlite:
             with self._sqlite_lock:
                 with self._run_locked_tx() as pair:

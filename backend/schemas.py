@@ -83,7 +83,6 @@ class EventType(str, Enum):
 
 
 def parse_strict_iso_date(value: Any) -> str:
-    """Строго валидирует календарную дату YYYY-MM-DD (отклоняет None и 2026-02-30)."""
     if isinstance(value, dt.date) and not isinstance(value, dt.datetime):
         return value.isoformat()
     if not isinstance(value, str) or not _DATE_RE.match(value):
@@ -227,8 +226,6 @@ class SubmitJobResult(CamelModel):
 
 
 class StartJobCommand(CamelModel):
-    """Сообщение Dispatcher -> Worker после фиксации JOB_RESERVED."""
-
     job_id: str
     execution_id: str
     process_id: str

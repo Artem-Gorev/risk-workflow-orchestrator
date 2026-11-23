@@ -11,24 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 class WorkerGateway(Protocol):
-    """
-    Контракт Dispatcher -> Worker (реализуется в Блоке 04).
-    Метод должен принять команду StartJobCommand к асинхронному/фоновому исполнению.
-    Если передача подтверждённо сорвалась до принятия Worker, метод выбрасывает исключение.
-    """
-
     def dispatch(self, command: StartJobCommand) -> None:
         ...
 
 
 class Dispatcher:
-    """
-    Выполняет цикл диспетчеризации:
-    - после каждого успешного резервирования передаёт задачу Worker вне транзакции БД
-      и повторяет проверку с начала упорядоченного списка кандидатов;
-    - при подтверждённом отказе передачи переводит STARTING -> FAILED (DISPATCH_ERROR).
-    """
-
     def __init__(self, core: OrchestratorCore, worker_gateway: WorkerGateway) -> None:
         self.core = core
         self.worker_gateway = worker_gateway
@@ -58,11 +45,6 @@ class Dispatcher:
 
 
 class DispatcherRunner:
-    """
-    Фоновый поток диспетчера с коалесценцией сигналов пробуждения:
-    если сигнал пришёл во время прохода, следующий проход запустится сразу перед сном.
-    """
-
     def __init__(self, dispatcher: Dispatcher) -> None:
         self.dispatcher = dispatcher
         self._cond = threading.Condition()

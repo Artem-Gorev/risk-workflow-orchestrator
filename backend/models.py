@@ -23,12 +23,7 @@ class Base(DeclarativeBase):
 
 
 class OrchestratorControl(Base):
-    """
-    Управляющая строка (id=1) для сериализации критических секций в PostgreSQL
-    через SELECT ... FOR UPDATE и монотонной выдачи queueSequence / eventId.
-    """
-
-    __tablename__ = "orchestrator_control"
+     __tablename__ = "orchestrator_control"
     __table_args__ = (CheckConstraint("id = 1", name="ck_control_singleton"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
@@ -37,8 +32,6 @@ class OrchestratorControl(Base):
 
 
 class ResourceModel(Base):
-    """Реестр логических ресурсов."""
-
     __tablename__ = "resources"
 
     resource_key: Mapped[str] = mapped_column(String(128), primary_key=True)
@@ -47,8 +40,6 @@ class ResourceModel(Base):
 
 
 class ProcessModel(Base):
-    """Реестр процессов оценки рисков и их шаблонов доступов."""
-
     __tablename__ = "processes"
 
     process_id: Mapped[str] = mapped_column(String(128), primary_key=True)
@@ -58,8 +49,6 @@ class ProcessModel(Base):
 
 
 class JobModel(Base):
-    """Задачи в единой очереди и их история."""
-
     __tablename__ = "jobs"
     __table_args__ = (
         Index("ix_jobs_status_queue_seq", "status", "queue_sequence"),
@@ -96,11 +85,6 @@ class JobModel(Base):
 
 
 class IdempotencyRecordModel(Base):
-    """
-    Связь ключа идемпотентности (для MANUAL) или срабатывания регламента (для SCHEDULED)
-    с параметрами заявки и job_id.
-    """
-
     __tablename__ = "idempotency_records"
     __table_args__ = (
         UniqueConstraint(
@@ -124,8 +108,6 @@ class IdempotencyRecordModel(Base):
 
 
 class ResourceReservationModel(Base):
-    """Активные резервирования ресурсов для задач в статусах STARTING и RUNNING."""
-
     __tablename__ = "resource_reservations"
     __table_args__ = (
         Index("ix_reservations_resource_key", "resource_key"),
@@ -147,8 +129,6 @@ class ResourceReservationModel(Base):
 
 
 class JobEventModel(Base):
-    """Журнал всех переходов состояния и изменений причины ожидания."""
-
     __tablename__ = "job_events"
     __table_args__ = (Index("ix_job_events_job_id_event_id", "job_id", "event_id"),)
 
@@ -163,11 +143,6 @@ class JobEventModel(Base):
 
 
 class ResourceValueModel(Base):
-    """
-    Последнее успешно опубликованное значение ресурса в заданной области.
-    Обновляется атомарно с переходом задачи в SUCCEEDED.
-    """
-
     __tablename__ = "resource_values"
 
     resource_key: Mapped[str] = mapped_column(

@@ -219,7 +219,6 @@ def register_process(session: Session, process: ProcessDefinition) -> None:
 
 
 def seed_default_registry(session: Session) -> None:
-    """Идемпотентно загружает ресурсы и процессы синтетической модели."""
     for res in DEFAULT_RESOURCES:
         register_resource(session, res)
     for proc in DEFAULT_PROCESSES:
