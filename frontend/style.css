@@ -1,0 +1,215 @@
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  color: #192c3b;
+  background: #f3f6f7;
+  font-size: 15px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: #123338;
+  color: #d8eeea;
+  padding: 22px max(5vw, 20px);
+}
+header strong {
+  font-size: 26px;
+  color: white;
+  letter-spacing: -1.3px;
+}
+header a {
+  margin-left: auto;
+  color: #aee3d9;
+}
+main {
+  max-width: 1320px;
+  margin: auto;
+  padding: 0 4vw 45px;
+}
+nav {
+  display: flex;
+  gap: 8px;
+  overflow: auto;
+  border-bottom: 1px solid #ccd7d9;
+  padding: 18px 0;
+}
+button,
+select,
+input {
+  font: inherit;
+  border-radius: 6px;
+}
+button {
+  background: #13685f;
+  color: white;
+  border: 0;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+button:hover {
+  filter: brightness(0.91);
+}
+button:disabled {
+  opacity: 0.55;
+}
+nav button,
+.secondary {
+  background: transparent;
+  color: #314c52;
+  white-space: nowrap;
+}
+nav button.active {
+  background: #d9e9e5;
+  color: #075c52;
+}
+h1 {
+  letter-spacing: -1.4px;
+  font-size: clamp(28px, 4vw, 42px);
+  margin: 20px 0;
+}
+h2 {
+  font-size: 18px;
+  margin: 0 0 12px;
+}
+article,
+.stats > div,
+dialog {
+  background: white;
+  border: 1px solid #d9e1e2;
+  border-radius: 12px;
+  padding: 22px;
+  margin-bottom: 16px;
+  overflow: auto;
+}
+.stats,
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 12px;
+}
+.columns {
+  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
+}
+.stats strong {
+  display: block;
+  font-size: 28px;
+}
+.stats small,
+small,
+label {
+  color: #506568;
+}
+.stats > div {
+  border-top: 3px solid #59a396;
+}
+form {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+label {
+  display: grid;
+  gap: 5px;
+  font-size: 13px;
+}
+input,
+select {
+  padding: 9px;
+  border: 1px solid #bdcbcf;
+  background: white;
+  color: #192c3b;
+  max-width: 100%;
+}
+td,
+th {
+  padding: 9px;
+  text-align: left;
+  border-bottom: 1px solid #e4eaea;
+  font-size: 14px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.busy {
+  color: #bc4b50;
+}
+.wait {
+  color: #a86a0e;
+}
+.legend {
+  color: #187762;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 7px 0;
+  border-bottom: 1px solid #edf1f2;
+}
+.link {
+  color: #11695e;
+  background: #eef7f4;
+  padding: 5px 8px;
+  font: inherit;
+}
+svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+#graph svg {
+  min-width: 660px;
+}
+#graph {
+  overflow: auto;
+}
+#chart svg {
+  height: 85px;
+}
+#notice:empty {
+  display: none;
+}
+#notice {
+  color: #0a6358;
+}
+dialog {
+  max-width: min(760px, 95vw);
+  max-height: 85vh;
+}
+dialog::backdrop {
+  background: #142e3880;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+[hidden] {
+  display: none !important;
+}
+
+.bindings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  flex-basis: 100%;
+}
+
+.scenario-picker {
+  margin-bottom: 0.75rem;
+}
+#scenarioExpected {
+  font-weight: 600;
+}
+#scenarioInputs {
+  margin-top: 0.75rem;
+}
