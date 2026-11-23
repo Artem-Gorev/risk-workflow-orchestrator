@@ -1,0 +1,3467 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Risk Workflow Orchestrator",
+    "version": "1.0"
+  },
+  "paths": {
+    "/api/v1/processes": {
+      "get": {
+        "summary": "Processes",
+        "operationId": "processes_api_v1_processes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs": {
+      "post": {
+        "summary": "Submit",
+        "operationId": "submit_api_v1_jobs_post",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[!-~]{1,128}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Submission"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          }
+        }
+      },
+      "get": {
+        "summary": "Jobs",
+        "operationId": "jobs_api_v1_jobs_get",
+        "parameters": [
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "queue",
+                "active",
+                "history"
+              ],
+              "type": "string",
+              "default": "queue",
+              "title": "View"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "QUEUED",
+                    "WAITING",
+                    "STARTING",
+                    "RUNNING",
+                    "SUCCEEDED",
+                    "FAILED",
+                    "CANCELLED"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "processId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Processid"
+            }
+          },
+          {
+            "name": "calculationDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Calculationdate"
+            }
+          },
+          {
+            "name": "triggerType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "MANUAL",
+                    "SCHEDULED"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Triggertype"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{job_id}/cancel": {
+      "post": {
+        "summary": "Cancel",
+        "operationId": "cancel_api_v1_jobs__job_id__cancel_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Empty"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cancellation"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{job_id}": {
+      "get": {
+        "summary": "Detail",
+        "operationId": "detail_api_v1_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{job_id}/provenance": {
+      "get": {
+        "summary": "Provenance",
+        "operationId": "provenance_api_v1_jobs__job_id__provenance_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Provenance"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/events": {
+      "get": {
+        "summary": "Events",
+        "operationId": "events_api_v1_events_get",
+        "parameters": [
+          {
+            "name": "afterEventId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMaximum": 9223372036854775808,
+              "default": 0,
+              "title": "Aftereventid"
+            }
+          },
+          {
+            "name": "jobId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jobid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/overview": {
+      "get": {
+        "summary": "Overview",
+        "operationId": "overview_api_v1_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audit/configuration": {
+      "get": {
+        "summary": "Audit Log",
+        "operationId": "audit_log_api_v1_audit_configuration_get",
+        "parameters": [
+          {
+            "name": "afterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Afterid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/processes/{code}": {
+      "put": {
+        "summary": "Definition",
+        "operationId": "definition_api_v1_processes__code__put",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+              "title": "Code"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Definition"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/handlers": {
+      "get": {
+        "summary": "Handlers",
+        "operationId": "handlers_api_v1_handlers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/resources": {
+      "post": {
+        "summary": "Resource",
+        "operationId": "resource_api_v1_resources_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Resource"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{job_id}/stop": {
+      "post": {
+        "summary": "Stop",
+        "operationId": "stop_api_v1_jobs__job_id__stop_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Empty"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cancellation"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{job_id}/restart": {
+      "post": {
+        "summary": "Restart",
+        "operationId": "restart_api_v1_jobs__job_id__restart_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[!-~]{1,128}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Empty"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/schedules": {
+      "get": {
+        "summary": "Schedules",
+        "operationId": "schedules_api_v1_schedules_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "items": {
+                      "$ref": "#/components/schemas/ScheduleRecord"
+                    },
+                    "type": "array"
+                  },
+                  "type": "object",
+                  "title": "Response Schedules Api V1 Schedules Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedules/{code}": {
+      "put": {
+        "summary": "Schedule",
+        "operationId": "schedule_api_v1_schedules__code__put",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+              "title": "Code"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Schedule"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/synthetic-cases": {
+      "get": {
+        "summary": "Synthetic Cases",
+        "operationId": "synthetic_cases_api_v1_synthetic_cases_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyntheticCaseCatalog"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dependencies": {
+      "get": {
+        "summary": "Graph",
+        "operationId": "graph_api_v1_dependencies_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics": {
+      "get": {
+        "summary": "Analytics",
+        "operationId": "analytics_api_v1_analytics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/forecast": {
+      "get": {
+        "summary": "Predict",
+        "operationId": "predict_api_v1_analytics_forecast_get",
+        "parameters": [
+          {
+            "name": "processId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Processid"
+            }
+          },
+          {
+            "name": "calculationDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Calculationdate"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Forecast"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/ask": {
+      "post": {
+        "summary": "Ask",
+        "operationId": "ask_api_v1_analytics_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Question"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Insight"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/simulation": {
+      "get": {
+        "summary": "Simulation",
+        "operationId": "simulation_api_v1_simulation_get",
+        "parameters": [
+          {
+            "name": "seed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 42,
+              "title": "Seed"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 2,
+              "default": 40,
+              "title": "Count"
+            }
+          },
+          {
+            "name": "slots",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 2,
+              "title": "Slots"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/demo": {
+      "post": {
+        "summary": "Demo",
+        "operationId": "demo_api_v1_demo_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Empty"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoBatch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/demo/{batch_id}": {
+      "get": {
+        "summary": "Read Demo",
+        "operationId": "read_demo_api_v1_demo__batch_id__get",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/factor-revisions": {
+      "get": {
+        "summary": "Factors",
+        "operationId": "factors_api_v1_factor_revisions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/batches": {
+      "post": {
+        "summary": "Batch",
+        "operationId": "batch_api_v1_batches_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/batches/{batch_id}": {
+      "get": {
+        "summary": "Read Batch",
+        "operationId": "read_batch_api_v1_batches__batch_id__get",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{job_id}/snapshot": {
+      "get": {
+        "summary": "Snapshot",
+        "operationId": "snapshot_api_v1_jobs__job_id__snapshot_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{job_id}/replay": {
+      "post": {
+        "summary": "Replay",
+        "operationId": "replay_api_v1_jobs__job_id__replay_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[!-~]{1,128}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Empty"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/schedule-history": {
+      "get": {
+        "summary": "Schedule History",
+        "operationId": "schedule_history_api_v1_schedule_history_get",
+        "parameters": [
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/api/v1/benchmarks": {
+      "get": {
+        "summary": "Benchmarks",
+        "operationId": "benchmarks_api_v1_benchmarks_get",
+        "parameters": [
+          {
+            "name": "compact",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Compact"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "summary": "Live",
+        "operationId": "live_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "summary": "Ready",
+        "operationId": "ready_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Access": {
+        "properties": {
+          "resourceKey": {
+            "type": "string",
+            "title": "Resourcekey"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "READ",
+              "WRITE"
+            ],
+            "title": "Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resourceKey",
+          "scope",
+          "mode"
+        ],
+        "title": "Access"
+      },
+      "AnalyticsReport": {
+        "properties": {
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "totalJobs": {
+            "type": "integer",
+            "title": "Totaljobs"
+          },
+          "failedJobs": {
+            "type": "integer",
+            "title": "Failedjobs"
+          },
+          "meanRuntimeSeconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meanruntimeseconds"
+          },
+          "waitSeconds": {
+            "type": "number",
+            "title": "Waitseconds"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/Hotspot"
+            },
+            "type": "array",
+            "title": "Resources"
+          },
+          "processes": {
+            "items": {
+              "$ref": "#/components/schemas/ProcessStatistics"
+            },
+            "type": "array",
+            "title": "Processes"
+          },
+          "load": {
+            "items": {
+              "$ref": "#/components/schemas/LoadPoint"
+            },
+            "type": "array",
+            "title": "Load"
+          },
+          "recentEvents": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Recentevents"
+          },
+          "conflictedJobs": {
+            "type": "integer",
+            "title": "Conflictedjobs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "days",
+          "totalJobs",
+          "failedJobs",
+          "meanRuntimeSeconds",
+          "waitSeconds",
+          "resources",
+          "processes",
+          "load",
+          "recentEvents",
+          "conflictedJobs"
+        ],
+        "title": "AnalyticsReport"
+      },
+      "BatchRequest": {
+        "properties": {
+          "calculationDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Calculationdate"
+          },
+          "factorRevision": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Factorrevision"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "calculationDate",
+          "factorRevision"
+        ],
+        "title": "BatchRequest"
+      },
+      "Cancellation": {
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Jobid"
+          },
+          "status": {
+            "type": "string",
+            "const": "CANCELLED",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "jobId",
+          "status"
+        ],
+        "title": "Cancellation"
+      },
+      "Catalog": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProcessInfo"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "Catalog"
+      },
+      "Conflict": {
+        "properties": {
+          "resourceKey": {
+            "type": "string",
+            "title": "Resourcekey"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          },
+          "requestedMode": {
+            "type": "string",
+            "enum": [
+              "READ",
+              "WRITE"
+            ],
+            "title": "Requestedmode"
+          },
+          "activeMode": {
+            "type": "string",
+            "enum": [
+              "READ",
+              "WRITE"
+            ],
+            "title": "Activemode"
+          },
+          "blockingJobId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Blockingjobid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resourceKey",
+          "scope",
+          "requestedMode",
+          "activeMode",
+          "blockingJobId"
+        ],
+        "title": "Conflict"
+      },
+      "Definition": {
+        "properties": {
+          "joinActive": {
+            "type": "boolean",
+            "title": "Joinactive",
+            "default": false
+          },
+          "handler": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "title": "Handler"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Description",
+            "default": ""
+          },
+          "priority": {
+            "type": "integer",
+            "maximum": 9.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "default": 5
+          },
+          "executionSeconds": {
+            "type": "number",
+            "maximum": 300.0,
+            "minimum": 0.0,
+            "title": "Executionseconds",
+            "default": 0
+          },
+          "isActive": {
+            "type": "boolean",
+            "title": "Isactive",
+            "default": true
+          },
+          "bindings": {
+            "patternProperties": {
+              "^[a-z][a-z0-9_-]{0,63}$": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+              }
+            },
+            "type": "object",
+            "title": "Bindings"
+          },
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Expectedversion",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "handler",
+          "name"
+        ],
+        "title": "Definition"
+      },
+      "DemoBatch": {
+        "properties": {
+          "demoId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Demoid"
+          },
+          "jobs": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Jobs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "demoId",
+          "jobs"
+        ],
+        "title": "DemoBatch"
+      },
+      "DemoStatus": {
+        "properties": {
+          "demoId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Demoid"
+          },
+          "jobs": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Jobs"
+          },
+          "scheduleSlot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleSlot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Job"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "DELIVERED",
+              "FAILED"
+            ],
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "demoId",
+          "jobs",
+          "scheduleSlot",
+          "items",
+          "status",
+          "error"
+        ],
+        "title": "DemoStatus"
+      },
+      "Empty": {
+        "properties": {},
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Empty"
+      },
+      "Event": {
+        "properties": {
+          "eventId": {
+            "type": "integer",
+            "title": "Eventid"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Jobid"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurredat"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "WAITING",
+              "STARTING",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCELLED"
+            ],
+            "title": "Status"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eventId",
+          "jobId",
+          "type",
+          "occurredAt",
+          "status",
+          "payload"
+        ],
+        "title": "Event"
+      },
+      "EventPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "nextAfterEventId": {
+            "type": "integer",
+            "title": "Nextaftereventid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "nextAfterEventId"
+        ],
+        "title": "EventPage"
+      },
+      "Failure": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "Failure"
+      },
+      "Forecast": {
+        "properties": {
+          "conflictsNow": {
+            "items": {
+              "$ref": "#/components/schemas/Conflict"
+            },
+            "type": "array",
+            "title": "Conflictsnow"
+          },
+          "samples": {
+            "type": "integer",
+            "title": "Samples"
+          },
+          "historicalConflictRate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Historicalconflictrate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conflictsNow",
+          "samples",
+          "historicalConflictRate"
+        ],
+        "title": "Forecast"
+      },
+      "Hotspot": {
+        "properties": {
+          "resourceKey": {
+            "type": "string",
+            "title": "Resourcekey"
+          },
+          "waitSeconds": {
+            "type": "number",
+            "title": "Waitseconds"
+          },
+          "shareOfWait": {
+            "type": "number",
+            "title": "Shareofwait"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resourceKey",
+          "waitSeconds",
+          "shareOfWait"
+        ],
+        "title": "Hotspot"
+      },
+      "InputLineage": {
+        "properties": {
+          "resourceKey": {
+            "type": "string",
+            "title": "Resourcekey"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "sourceJobId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcejobid"
+          },
+          "sourceProcessId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceprocessid"
+          },
+          "coefficients": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InputVersion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "resourceKey",
+          "scope",
+          "revision",
+          "sourceJobId",
+          "sourceProcessId",
+          "coefficients"
+        ],
+        "title": "InputLineage"
+      },
+      "InputVersion": {
+        "properties": {
+          "resourceKey": {
+            "type": "string",
+            "title": "Resourcekey"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "sourceJobId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcejobid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resourceKey",
+          "scope",
+          "revision",
+          "sourceJobId"
+        ],
+        "title": "InputVersion"
+      },
+      "Insight": {
+        "properties": {
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "items": {},
+                "type": "array"
+              }
+            ],
+            "title": "Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "answer",
+          "evidence"
+        ],
+        "title": "Insight"
+      },
+      "Job": {
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Jobid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "WAITING",
+              "STARTING",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCELLED"
+            ],
+            "title": "Status"
+          },
+          "queuedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Queuedat"
+          },
+          "hasSnapshot": {
+            "type": "boolean",
+            "title": "Hassnapshot"
+          },
+          "attempt": {
+            "type": "integer",
+            "title": "Attempt"
+          },
+          "retryAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retryat"
+          },
+          "batchId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batchid"
+          },
+          "replayOf": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replayof"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority"
+          },
+          "leaseUntil": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leaseuntil"
+          },
+          "processId": {
+            "type": "string",
+            "title": "Processid"
+          },
+          "processVersion": {
+            "type": "integer",
+            "title": "Processversion"
+          },
+          "calculationDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Calculationdate"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/Trigger"
+          },
+          "queueSequence": {
+            "type": "integer",
+            "title": "Queuesequence"
+          },
+          "accesses": {
+            "items": {
+              "$ref": "#/components/schemas/Access"
+            },
+            "type": "array",
+            "title": "Accesses"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startedat"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishedat"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Result"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Failure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "waitReason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Reason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "jobId",
+          "status",
+          "queuedAt",
+          "hasSnapshot",
+          "attempt",
+          "retryAt",
+          "batchId",
+          "replayOf",
+          "priority",
+          "leaseUntil",
+          "processId",
+          "processVersion",
+          "calculationDate",
+          "trigger",
+          "queueSequence",
+          "accesses",
+          "startedAt",
+          "finishedAt",
+          "result",
+          "error",
+          "waitReason"
+        ],
+        "title": "Job"
+      },
+      "JobPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Job"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "title": "JobPage"
+      },
+      "LoadPoint": {
+        "properties": {
+          "minute": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Minute"
+          },
+          "busySeconds": {
+            "type": "number",
+            "title": "Busyseconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "minute",
+          "busySeconds"
+        ],
+        "title": "LoadPoint"
+      },
+      "Output": {
+        "properties": {
+          "resourceKey": {
+            "type": "string",
+            "title": "Resourcekey"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/Scope"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resourceKey",
+          "scope",
+          "revision",
+          "value"
+        ],
+        "title": "Output"
+      },
+      "Overview": {
+        "properties": {
+          "serverTime": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Servertime"
+          },
+          "countsByStatus": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Countsbystatus"
+          },
+          "occupiedSlots": {
+            "type": "integer",
+            "title": "Occupiedslots"
+          },
+          "maxSlots": {
+            "type": "integer",
+            "title": "Maxslots"
+          },
+          "resourceWaitingCount": {
+            "type": "integer",
+            "title": "Resourcewaitingcount"
+          },
+          "slotWaitingCount": {
+            "type": "integer",
+            "title": "Slotwaitingcount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "serverTime",
+          "countsByStatus",
+          "occupiedSlots",
+          "maxSlots",
+          "resourceWaitingCount",
+          "slotWaitingCount"
+        ],
+        "title": "Overview"
+      },
+      "ProcessInfo": {
+        "properties": {
+          "joinActive": {
+            "type": "boolean",
+            "title": "Joinactive"
+          },
+          "handler": {
+            "type": "string",
+            "title": "Handler"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority"
+          },
+          "executionSeconds": {
+            "type": "number",
+            "title": "Executionseconds"
+          },
+          "isActive": {
+            "type": "boolean",
+            "title": "Isactive"
+          },
+          "bindings": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Bindings"
+          },
+          "processId": {
+            "type": "string",
+            "title": "Processid"
+          },
+          "processVersion": {
+            "type": "integer",
+            "title": "Processversion"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "accessTemplates": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Accesstemplates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "joinActive",
+          "handler",
+          "priority",
+          "executionSeconds",
+          "isActive",
+          "bindings",
+          "processId",
+          "processVersion",
+          "name",
+          "description",
+          "accessTemplates"
+        ],
+        "title": "ProcessInfo"
+      },
+      "ProcessStatistics": {
+        "properties": {
+          "process": {
+            "type": "string",
+            "title": "Process"
+          },
+          "jobs": {
+            "type": "integer",
+            "title": "Jobs"
+          },
+          "failures": {
+            "type": "integer",
+            "title": "Failures"
+          },
+          "runtime": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime"
+          },
+          "blocked": {
+            "type": "integer",
+            "title": "Blocked"
+          }
+        },
+        "type": "object",
+        "required": [
+          "process",
+          "jobs",
+          "failures",
+          "runtime",
+          "blocked"
+        ],
+        "title": "ProcessStatistics"
+      },
+      "Provenance": {
+        "properties": {
+          "inputs": {
+            "items": {
+              "$ref": "#/components/schemas/InputLineage"
+            },
+            "type": "array",
+            "title": "Inputs"
+          },
+          "coefficientStatus": {
+            "type": "string",
+            "enum": [
+              "SAME_REVISION",
+              "MIXED_REVISIONS",
+              "UNAVAILABLE",
+              "NOT_APPLICABLE"
+            ],
+            "title": "Coefficientstatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "inputs",
+          "coefficientStatus"
+        ],
+        "title": "Provenance"
+      },
+      "Question": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "calculationDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calculationdate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "Question"
+      },
+      "Reason": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "RESOURCE_CONFLICT",
+              "NO_WORKER_SLOT",
+              "QUEUE_FAIRNESS"
+            ],
+            "title": "Code"
+          },
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/Conflict"
+            },
+            "type": "array",
+            "title": "Conflicts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "conflicts"
+        ],
+        "title": "Reason"
+      },
+      "Receipt": {
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Jobid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "WAITING",
+              "STARTING",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCELLED"
+            ],
+            "title": "Status"
+          },
+          "queuedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Queuedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "jobId",
+          "status",
+          "queuedAt"
+        ],
+        "title": "Receipt"
+      },
+      "Resource": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "title": "Key"
+          },
+          "kind": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "title": "Kind"
+          },
+          "copyValues": {
+            "type": "boolean",
+            "title": "Copyvalues",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "kind"
+        ],
+        "title": "Resource"
+      },
+      "Result": {
+        "properties": {
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/Output"
+            },
+            "type": "array",
+            "title": "Outputs"
+          },
+          "inputVersions": {
+            "items": {
+              "$ref": "#/components/schemas/InputVersion"
+            },
+            "type": "array",
+            "title": "Inputversions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "outputs",
+          "inputVersions"
+        ],
+        "title": "Result"
+      },
+      "Schedule": {
+        "properties": {
+          "processId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "title": "Processid"
+          },
+          "frequency": {
+            "type": "string",
+            "enum": [
+              "DAILY",
+              "WEEKLY"
+            ],
+            "title": "Frequency"
+          },
+          "localTime": {
+            "type": "string",
+            "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$",
+            "title": "Localtime"
+          },
+          "weekday": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 6.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekday"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "processId",
+          "frequency",
+          "localTime"
+        ],
+        "title": "Schedule"
+      },
+      "ScheduleRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "process": {
+            "type": "string",
+            "title": "Process"
+          },
+          "due": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day"
+          },
+          "daily": {
+            "type": "boolean",
+            "title": "Daily"
+          },
+          "local_time": {
+            "type": "string",
+            "format": "time",
+            "title": "Local Time"
+          },
+          "weekday": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekday"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "process",
+          "due",
+          "day",
+          "daily",
+          "local_time",
+          "weekday",
+          "enabled"
+        ],
+        "title": "ScheduleRecord"
+      },
+      "ScheduleSlot": {
+        "properties": {
+          "schedule_id": {
+            "type": "string",
+            "title": "Schedule Id"
+          },
+          "planned": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Planned"
+          },
+          "observed": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schedule_id",
+          "planned",
+          "observed",
+          "status",
+          "reason",
+          "job_id"
+        ],
+        "title": "ScheduleSlot"
+      },
+      "Scope": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "DATE",
+              "GLOBAL"
+            ],
+            "title": "Type"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "Scope"
+      },
+      "SimulatedRequest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "process": {
+            "type": "string",
+            "title": "Process"
+          },
+          "user": {
+            "type": "string",
+            "title": "User"
+          },
+          "arrival": {
+            "type": "integer",
+            "title": "Arrival"
+          },
+          "duration": {
+            "type": "integer",
+            "title": "Duration"
+          },
+          "access": {
+            "$ref": "#/components/schemas/Access"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "process",
+          "user",
+          "arrival",
+          "duration",
+          "access"
+        ],
+        "title": "SimulatedRequest"
+      },
+      "SimulationResult": {
+        "properties": {
+          "seed": {
+            "type": "integer",
+            "title": "Seed"
+          },
+          "requests": {
+            "items": {
+              "$ref": "#/components/schemas/SimulatedRequest"
+            },
+            "type": "array",
+            "title": "Requests"
+          },
+          "fifo": {
+            "$ref": "#/components/schemas/SimulationRun"
+          },
+          "managed": {
+            "$ref": "#/components/schemas/SimulationRun"
+          },
+          "unmanaged": {
+            "$ref": "#/components/schemas/SimulationRun"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seed",
+          "requests",
+          "fifo",
+          "managed",
+          "unmanaged"
+        ],
+        "title": "SimulationResult"
+      },
+      "SimulationRun": {
+        "properties": {
+          "durationTicks": {
+            "type": "integer",
+            "title": "Durationticks"
+          },
+          "conflictingPairs": {
+            "type": "integer",
+            "title": "Conflictingpairs"
+          },
+          "queueTicks": {
+            "type": "integer",
+            "title": "Queueticks"
+          },
+          "p95WaitTicks": {
+            "type": "integer",
+            "title": "P95Waitticks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "durationTicks",
+          "conflictingPairs",
+          "queueTicks",
+          "p95WaitTicks"
+        ],
+        "title": "SimulationRun"
+      },
+      "Submission": {
+        "properties": {
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 9.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "processId": {
+            "type": "string",
+            "title": "Processid"
+          },
+          "calculationDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Calculationdate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "processId",
+          "calculationDate"
+        ],
+        "title": "Submission"
+      },
+      "SyntheticCaseCatalog": {
+        "properties": {
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Startdate"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Enddate"
+          },
+          "factors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Factors"
+          },
+          "factorRevision": {
+            "type": "integer",
+            "title": "Factorrevision"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SyntheticCaseInfo"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "startDate",
+          "endDate",
+          "factors",
+          "factorRevision",
+          "items"
+        ],
+        "title": "SyntheticCaseCatalog"
+      },
+      "SyntheticCaseInfo": {
+        "properties": {
+          "calculationDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Calculationdate"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Inputs"
+          },
+          "expected": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Expected"
+          },
+          "expectedErrors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Expectederrors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "calculationDate",
+          "name",
+          "description",
+          "inputs",
+          "expected",
+          "expectedErrors"
+        ],
+        "title": "SyntheticCaseInfo"
+      },
+      "Trigger": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "MANUAL",
+              "SCHEDULED"
+            ],
+            "title": "Type"
+          },
+          "initiatorId": {
+            "type": "string",
+            "title": "Initiatorid"
+          },
+          "restartedFrom": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restartedfrom"
+          },
+          "demoId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demoid"
+          },
+          "scheduleId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduleid"
+          },
+          "scheduledFor": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduledfor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "initiatorId"
+        ],
+        "title": "Trigger"
+      }
+    }
+  }
+}
