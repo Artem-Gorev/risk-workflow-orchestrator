@@ -4,3 +4,8 @@
 !alembic.ini
 !requirements.txt
 **/__pycache__
+!frontend
+!frontend/**
+frontend/node_modules
+frontend/dist
+frontend/.env*
