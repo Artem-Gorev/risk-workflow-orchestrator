@@ -1,0 +1,27 @@
+.management-page > .page-heading {
+  margin-bottom: 0;
+}
+
+.management-page > .management-heading-with-button {
+  justify-content: space-between;
+}
+
+.management-page .empty {
+  padding-block: 0;
+}
+
+.management-page .table-wrap + .actions {
+  margin-top: 14px;
+}
+
+@media (max-width: 620px) {
+  .management-page.stack {
+    gap: 28px;
+  }
+
+  .management-page > .management-heading-with-button {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+}
