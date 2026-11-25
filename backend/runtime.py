@@ -29,6 +29,7 @@ class Runtime:
             self.stop,
             self.wake,
             self.config.dispatcher_poll,
+            config.worker_timeout,
         )
         self.thread = Thread(target=self.run, name="dispatcher")
         self.healthy = False

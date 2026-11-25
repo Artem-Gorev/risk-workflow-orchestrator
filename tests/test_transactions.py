@@ -6,10 +6,13 @@ import pytest
 from alembic import command
 from alembic.config import Config
 
+from backend.analytics.report import report
 from backend.orchestrator.resources import conflicts
 from backend.orchestrator.service import JobService
+from backend.orchestrator.snapshots import execution_inputs
 from backend.orchestrator.storage import Storage, load_inputs, query
 from backend.scheduler.service import tick
+from backend.workers.catalog import PROCESSES
 
 DAY = date(2026, 11, 26)
 
@@ -27,6 +30,69 @@ def enqueue(service, process="credit-risk", day=DAY):
     with service.storage.transaction() as conn:
         job, _ = service.submit(conn, process, day, {"type": "MANUAL", "initiatorId": "analyst"})
         return job
+
+
+@pytest.mark.parametrize("refresh, error", [(True, "STALE_INPUTS"), (False, "STALE_OUTPUT")])
+def test_stale_retry_keeps_current_output(service, refresh, error):
+    def start():
+        job = service.reserve()
+        assert service.start(job)
+        with service.storage.transaction() as conn:
+            active = query(conn, "SELECT * FROM jobs WHERE id=:id", id=job.id).one()
+            values, versions = execution_inputs(conn, active)
+        return job, PROCESSES[job.handler].calculate(values), versions
+
+    enqueue(service)
+    first, _, _ = start()
+    with service.storage.transaction() as conn:
+        service.fail(conn, first, "WORKER_LOST", "Тестовый обрыв")
+        query(conn, "UPDATE jobs SET retry_at=now()+interval '1 hour' WHERE id=:id", id=first.id)
+    if refresh:
+        enqueue(service, "refresh-parameters", DAY + timedelta(days=1))
+        service.complete(*start())
+    enqueue(service)
+    newer = start()
+    service.complete(*newer)
+    with service.storage.transaction() as conn:
+        query(conn, "UPDATE jobs SET retry_at=NULL WHERE id=:id", id=first.id)
+    retry = start()
+    assert retry[0].id == first.id and retry[0].attempt == 2
+    service.complete(*retry)
+
+    with service.storage.engine.connect() as conn:
+        published = query(conn, "SELECT value,source FROM resource_values WHERE key='credit_risk'").one()
+        assert published == (newer[1]["credit_risk"], newer[0].id)
+        status, failure = query(conn, "SELECT status,error FROM jobs WHERE id=:id", id=first.id).one()
+        assert status == "FAILED" and failure["code"] == error
+
+
+def test_worker_load_keeps_interrupted_attempts(service):
+    enqueue(service)
+    attempt = service.reserve()
+    assert service.start(attempt)
+    with service.storage.transaction() as conn:
+        query(
+            conn,
+            "UPDATE job_events SET occurred=clock_timestamp()-interval '30 seconds' "
+            "WHERE job_id=:id AND type='JOB_STARTED'",
+            id=attempt.id,
+        )
+    with service.storage.engine.connect() as conn:
+        before = sum(bucket["busySeconds"] for bucket in report(conn)["load"])
+        assert before >= 30
+    with service.storage.transaction() as conn:
+        service.fail(conn, attempt, "WORKER_LOST", "Тестовый обрыв")
+        query(conn, "UPDATE jobs SET retry_at=NULL WHERE id=:id", id=attempt.id)
+    with service.storage.engine.connect() as conn:
+        assert sum(bucket["busySeconds"] for bucket in report(conn)["load"]) >= before
+
+    retry = service.reserve()
+    assert service.start(retry)
+    with service.storage.engine.connect() as conn:
+        versions = load_inputs(conn, retry)[1]
+    service.complete(retry, {"credit_risk": "10.00"}, versions)
+    with service.storage.engine.connect() as conn:
+        assert sum(bucket["busySeconds"] for bucket in report(conn)["load"]) >= before
 
 
 def reason(service, job_id):

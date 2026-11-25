@@ -100,39 +100,39 @@ def tick(service, now):
             now=now,
         ).all()
         for slot in slots:
-            due = slot.due
-            for _ in range(100):
-                trigger = {
-                    "type": "SCHEDULED",
-                    "initiatorId": slot.id,
-                    "scheduleId": slot.id,
-                    "scheduledFor": timestamp(due),
-                }
-                if slot.demo_id:
-                    deliver_demo(service, conn, slot, trigger, now)
-                    break
-                job_id = None
-                if now - due > timedelta(minutes=5):
-                    status, reason = "MISSED", "Истекло окно доставки 5 минут"
-                else:
-                    try:
-                        job, _ = service.submit(
-                            conn,
-                            slot.process,
-                            slot.day or due.astimezone(MOSCOW).date(),
-                            trigger,
-                            trigger["scheduledFor"],
-                        )
-                        status, reason, job_id = "DELIVERED", None, job.id
-                    except DomainError as error:
-                        status, reason = "REJECTED", f"{error.code} · {error}"
-                record_slot(conn, slot.id, due, now, status, reason, job_id)
-                due = next_slot(due, slot.local_time, slot.weekday) if slot.daily else None
-                query(
+            deliver_due_slots(service, conn, slot, now, limit=100)
+
+
+def deliver_due_slots(service, conn, slot, now, *, limit=None):
+    due = slot.due
+    delivered = 0
+    while due is not None and due <= now and (limit is None or delivered < limit):
+        trigger = {
+            "type": "SCHEDULED",
+            "initiatorId": slot.id,
+            "scheduleId": slot.id,
+            "scheduledFor": timestamp(due),
+        }
+        if slot.demo_id:
+            deliver_demo(service, conn, slot, trigger, now)
+            return
+        job_id = None
+        if now - due > timedelta(minutes=5):
+            status, reason = "MISSED", "Истекло окно доставки 5 минут"
+        else:
+            try:
+                job, _ = service.submit(
                     conn,
-                    "UPDATE schedules SET due=:due WHERE id=:id",
-                    id=slot.id,
-                    due=due,
+                    slot.process,
+                    slot.day or due.astimezone(MOSCOW).date(),
+                    trigger,
+                    trigger["scheduledFor"],
                 )
-                if due is None or due > now:
-                    break
+                status, reason, job_id = "DELIVERED", None, job.id
+            except DomainError as error:
+                status, reason = "REJECTED", f"{error.code} · {error}"
+        record_slot(conn, slot.id, due, now, status, reason, job_id)
+        due = next_slot(due, slot.local_time, slot.weekday) if slot.daily else None
+        delivered += 1
+    if delivered:
+        query(conn, "UPDATE schedules SET due=:due WHERE id=:id", id=slot.id, due=due)

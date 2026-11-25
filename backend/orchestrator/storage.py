@@ -114,12 +114,20 @@ def load_inputs(conn, job):
         )
         if logical_key not in PROCESSES[job.handler or job.process].inputs:
             continue
-        row = query(
-            conn,
-            "SELECT value,revision,source FROM resource_values WHERE key=:key AND partition=:day",
-            key=key,
-            day=scope.get("date", "*"),
-        ).first()
+        if job.batch_id and logical_key == "risk_parameters":
+            row = query(
+                conn,
+                """SELECT f.value,f.revision,f.source FROM risk_batches b
+                   JOIN factor_history f ON f.revision=b.factor_revision WHERE b.id=:id""",
+                id=job.batch_id,
+            ).first()
+        else:
+            row = query(
+                conn,
+                "SELECT value,revision,source FROM resource_values WHERE key=:key AND partition=:day",
+                key=key,
+                day=scope.get("date", "*"),
+            ).first()
         if row is None:
             raise DomainError("INPUT_NOT_FOUND", f"Отсутствуют данные {key} для области {scope}")
         inputs[logical_key] = row.value

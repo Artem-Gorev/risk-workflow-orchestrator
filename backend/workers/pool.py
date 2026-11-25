@@ -1,5 +1,6 @@
 import multiprocessing
-from threading import Lock, local
+from concurrent.futures import Future, wait
+from threading import Lock, Thread, local
 from time import monotonic, sleep
 
 from backend.workers.catalog import PROCESSES
@@ -20,8 +21,21 @@ def serve(pipe):
                 pipe.send((False, str(exc)))
 
 
+class CalculationTimeout(Exception):
+    pass
+
+
+def exchange(pipe, message, reply):
+    try:
+        pipe.send(message)
+        reply.set_result(pipe.recv())
+    except Exception as error:
+        reply.set_exception(error)
+
+
 class CalculationPool:
-    def __init__(self):
+    def __init__(self, timeout):
+        self.timeout = timeout
         self.context = multiprocessing.get_context("spawn")
         self.local = local()
         self.channels = {}
@@ -43,30 +57,45 @@ class CalculationPool:
         return pair
 
     def discard(self, pipe, child):
-        pipe.close()
         if child.is_alive():
             child.terminate()
-        child.join()
-        with self.lock:
-            self.channels.pop(child.pid, None)
-        child.close()
+            child.join(timeout=0.2)
+        if child.is_alive():
+            child.kill()
+            child.join(timeout=1)
+        pipe.close()
+        if not child.is_alive():
+            with self.lock:
+                self.channels.pop(child.pid, None)
+            child.close()
         self.local.pair = None
 
     def calculate(self, handler, inputs, delay, renew):
         pipe, child = self.channel()
+        deadline = monotonic() + delay + self.timeout
+        reply = Future()
+        response = None
         try:
-            pipe.send((handler, inputs, delay))
+            Thread(target=exchange, args=(pipe, (handler, inputs, delay), reply), daemon=True).start()
             heartbeat = monotonic() + 1
-            while not pipe.poll(0.2):
-                if monotonic() >= heartbeat:
+            while not reply.done():
+                now = monotonic()
+                if now >= deadline:
+                    raise CalculationTimeout
+                if now >= heartbeat:
                     if not renew():
-                        self.discard(pipe, child)
-                        return None
-                    heartbeat = monotonic() + 1
-            ok, output = pipe.recv()
+                        break
+                    heartbeat = now + 1
+                wait((reply,), timeout=max(0, min(deadline, heartbeat) - monotonic()))
+            else:
+                response = reply.result()
         except Exception:
             self.discard(pipe, child)
             raise
+        if response is None:
+            self.discard(pipe, child)
+            return None
+        ok, output = response
         if not ok:
             raise RuntimeError(output)
         return output

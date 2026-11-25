@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from backend.config import BackendConfig
 from backend.orchestrator.isolation import provision
 from backend.orchestrator.resources import conflicts
-from backend.orchestrator.storage import Storage, encode, query
+from backend.orchestrator.storage import Storage, encode, query, timestamp
 from backend.runtime import Runtime
 from backend.workers.synthetic import configured_period
 
@@ -37,9 +37,9 @@ def measure(conn):
             {
                 "id": str(j.id),
                 "process": j.process,
-                "queued": j.queued.isoformat(),
-                "started": j.started.isoformat(),
-                "finished": j.finished.isoformat(),
+                "queued": timestamp(j.queued),
+                "started": timestamp(j.started),
+                "finished": timestamp(j.finished),
             }
             for j in rows
         ],
@@ -48,7 +48,7 @@ def measure(conn):
                 "id": e.id,
                 "job": str(e.job_id),
                 "type": e.type,
-                "at": e.occurred.isoformat(),
+                "at": timestamp(e.occurred),
                 "payload": e.payload,
             }
             for e in events

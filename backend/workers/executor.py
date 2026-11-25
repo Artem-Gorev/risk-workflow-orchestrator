@@ -5,14 +5,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from backend.logging import record
 from backend.orchestrator.snapshots import execution_inputs
 from backend.orchestrator.storage import DomainError, query
-from backend.workers.pool import CalculationPool
+from backend.workers.pool import CalculationPool, CalculationTimeout
 
 log = logging.getLogger("uvicorn.error")
 
 
 class Worker:
-    def __init__(self, jobs, delay, stop, wake, poll):
-        self.compute = CalculationPool()
+    def __init__(self, jobs, delay, stop, wake, poll, timeout):
+        self.compute = CalculationPool(timeout)
         self.jobs = jobs
         self.storage = jobs.storage
         self.delay = delay
@@ -53,6 +53,8 @@ class Worker:
             return
         except (BrokenPipeError, EOFError, ConnectionResetError):
             code, message = "WORKER_LOST", "Прервалась связь с исполнителем"
+        except CalculationTimeout:
+            code, message = "EXECUTION_TIMEOUT", "Исполнитель не ответил в отведённое время"
         except DomainError as error:
             code, message = error.code, str(error)
         except Exception:

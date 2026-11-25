@@ -12,6 +12,7 @@ class BackendConfig:
     dispatcher_poll: float = 1
     scheduler_poll: float = 1
     worker_delay: float = 0
+    worker_timeout: float = 15
     daily_enabled: bool = False
     lock_path: str = "/tmp/risk-orchestrator.lock"
     auth_mode: str = "local"
@@ -19,11 +20,11 @@ class BackendConfig:
     public_origin: str = ""
 
     def __post_init__(self) -> None:
-        intervals = (self.dispatcher_poll, self.scheduler_poll, self.worker_delay)
+        intervals = (self.dispatcher_poll, self.scheduler_poll, self.worker_delay, self.worker_timeout)
         if (
             self.worker_slots < 1
             or not all(map(isfinite, intervals))
-            or min(self.dispatcher_poll, self.scheduler_poll) <= 0
+            or min(self.dispatcher_poll, self.scheduler_poll, self.worker_timeout) <= 0
             or self.worker_delay < 0
         ):
             raise ValueError("Проверьте размер пула, задержку расчёта и интервалы опроса")
@@ -40,6 +41,7 @@ class BackendConfig:
             dispatcher_poll=float(os.getenv("DISPATCH_POLL_SECONDS", "1")),
             scheduler_poll=float(os.getenv("SCHEDULER_POLL_SECONDS", "1")),
             worker_delay=float(os.getenv("WORKER_DELAY_SECONDS", "0")),
+            worker_timeout=float(os.getenv("WORKER_TIMEOUT_SECONDS", "15")),
             daily_enabled=os.getenv("DAILY_ENABLED", "0") == "1",
             lock_path=os.getenv("BACKEND_LOCK_PATH", "/tmp/risk-orchestrator.lock"),
             auth_mode=os.getenv("AUTH_MODE", "local"),

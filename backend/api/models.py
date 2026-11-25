@@ -1,14 +1,24 @@
-from datetime import date, datetime, time
+from datetime import UTC, date, datetime, time
 from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import Header
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field
 
 Status = Literal["QUEUED", "WAITING", "STARTING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"]
 Mode = Literal["READ", "WRITE"]
 Source = Literal["MANUAL", "SCHEDULED"]
 IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key", pattern=r"^[!-~]{1,128}$")]
+UtcDateTime = Annotated[datetime, AfterValidator(lambda value: value.astimezone(UTC))]
+
+
+def calendar_date(value):
+    if not isinstance(value, str) or len(value) != 10 or date.fromisoformat(value).isoformat() != value:
+        raise ValueError("Ожидается дата YYYY-MM-DD")
+    return value
+
+
+CalculationDate = Annotated[date, BeforeValidator(calendar_date)]
 
 
 class Empty(BaseModel):
@@ -18,14 +28,7 @@ class Empty(BaseModel):
 class Submission(Empty):
     priority: int | None = Field(default=None, ge=1, le=9)
     processId: str
-    calculationDate: date
-
-    @field_validator("calculationDate", mode="before")
-    @classmethod
-    def calendar_date(cls, value):
-        if not isinstance(value, str) or len(value) != 10 or date.fromisoformat(value).isoformat() != value:
-            raise ValueError("Ожидается дата YYYY-MM-DD")
-        return value
+    calculationDate: CalculationDate
 
 
 class Scope(BaseModel):
@@ -58,12 +61,16 @@ class Trigger(BaseModel):
     restartedFrom: UUID | None = None
     demoId: UUID | None = None
     scheduleId: str | None = None
-    scheduledFor: datetime | None = None
+    scheduledFor: UtcDateTime | None = None
 
 
 class Failure(BaseModel):
     code: str
     message: str
+
+
+WRITE_ERRORS = {code: {"model": Failure} for code in (403, 415)}
+CONFLICT_ERRORS = {**WRITE_ERRORS, 409: {"model": Failure}}
 
 
 class Cancellation(BaseModel):
@@ -74,7 +81,7 @@ class Cancellation(BaseModel):
 class Receipt(BaseModel):
     jobId: UUID
     status: Status
-    queuedAt: datetime
+    queuedAt: UtcDateTime
 
 
 class Revision(BaseModel):
@@ -109,19 +116,19 @@ class Provenance(BaseModel):
 class Job(Receipt):
     hasSnapshot: bool
     attempt: int
-    retryAt: datetime | None
+    retryAt: UtcDateTime | None
     batchId: UUID | None
     replayOf: UUID | None
     priority: int
-    leaseUntil: datetime | None
+    leaseUntil: UtcDateTime | None
     processId: str
     processVersion: int
     calculationDate: date
     trigger: Trigger
     queueSequence: int
     accesses: list[Access]
-    startedAt: datetime | None
-    finishedAt: datetime | None
+    startedAt: UtcDateTime | None
+    finishedAt: UtcDateTime | None
     result: Result | None
     error: Failure | None
     waitReason: Reason | None
@@ -136,7 +143,7 @@ class Event(BaseModel):
     eventId: int
     jobId: UUID
     type: str
-    occurredAt: datetime
+    occurredAt: UtcDateTime
     status: Status
     payload: dict
 
@@ -165,7 +172,7 @@ class Catalog(BaseModel):
 
 
 class Overview(BaseModel):
-    serverTime: datetime
+    serverTime: UtcDateTime
     countsByStatus: dict[str, int]
     occupiedSlots: int
     maxSlots: int
@@ -176,7 +183,7 @@ class Overview(BaseModel):
 class ScheduleRecord(BaseModel):
     id: str
     process: str
-    due: datetime | None
+    due: UtcDateTime | None
     day: date | None
     daily: bool
     local_time: time
@@ -221,11 +228,15 @@ class DemoBatch(BaseModel):
 
 class ScheduleSlot(BaseModel):
     schedule_id: str
-    planned: datetime
-    observed: datetime
+    planned: UtcDateTime
+    observed: UtcDateTime
     status: str
     reason: str | None
     job_id: UUID | None
+
+
+class ScheduleHistorySlot(ScheduleSlot):
+    id: int
 
 
 class DemoStatus(DemoBatch):
@@ -255,8 +266,15 @@ class ProcessStatistics(BaseModel):
 
 
 class LoadPoint(BaseModel):
-    minute: datetime
+    minute: UtcDateTime
     busySeconds: float
+
+
+class RecentEvent(BaseModel):
+    id: int
+    job_id: UUID
+    type: str
+    occurred: UtcDateTime
 
 
 class AnalyticsReport(BaseModel):
@@ -268,7 +286,7 @@ class AnalyticsReport(BaseModel):
     resources: list[Hotspot]
     processes: list[ProcessStatistics]
     load: list[LoadPoint]
-    recentEvents: list[dict]
+    recentEvents: list[RecentEvent]
     conflictedJobs: int
 
 

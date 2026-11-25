@@ -1,7 +1,7 @@
 import base64
 import json
-from datetime import UTC, date, datetime
-from typing import Annotated, Any, Literal, get_args
+from datetime import UTC, datetime
+from typing import Annotated, Literal, get_args
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request, Response
@@ -17,6 +17,8 @@ from backend.orchestrator.storage import (
 )
 
 from .models import (
+    CONFLICT_ERRORS,
+    CalculationDate,
     Cancellation,
     Catalog,
     Empty,
@@ -33,8 +35,7 @@ from .models import (
     Submission,
 )
 
-router = APIRouter(prefix="/api/v1", responses={code: {"model": Failure} for code in (401, 503)})
-WRITE_ERRORS: dict[int | str, dict[str, Any]] = {code: {"model": Failure} for code in (403, 409, 415)}
+router = APIRouter(prefix="/api/v1")
 PageSize = Annotated[int, Query(ge=1, le=200)]
 
 
@@ -52,7 +53,7 @@ def processes(request: Request):
     "/jobs",
     response_model=Receipt,
     status_code=201,
-    responses={200: {"model": Receipt}, **WRITE_ERRORS},
+    responses={200: {"model": Receipt}, **CONFLICT_ERRORS},
 )
 def submit(
     body: Submission,
@@ -75,7 +76,7 @@ def submit(
 @router.post(
     "/jobs/{job_id}/cancel",
     response_model=Cancellation,
-    responses={404: {"model": Failure}, **WRITE_ERRORS},
+    responses={404: {"model": Failure}, **CONFLICT_ERRORS},
 )
 def cancel(job_id: UUID, body: Empty, request: Request):
     runtime = request.app.state.runtime
@@ -98,7 +99,7 @@ def detail(job_id: UUID, request: Request):
     return job_record(row)
 
 
-@router.get("/jobs/{job_id}/provenance", response_model=Provenance)
+@router.get("/jobs/{job_id}/provenance", response_model=Provenance, responses={404: {"model": Failure}})
 def provenance(job_id: UUID, request: Request):
     with job_storage(request.app.state.runtime, job_id).engine.connect() as conn:
         job = query(conn, "SELECT * FROM jobs WHERE id=:id", id=job_id).first()
@@ -162,7 +163,7 @@ def jobs(
     view: Literal["queue", "active", "history"] = "queue",
     status: Status | None = None,
     processId: str | None = None,
-    calculationDate: date | None = None,
+    calculationDate: CalculationDate | None = None,
     triggerType: Source | None = None,
     cursor: str | None = None,
     limit: PageSize = 50,
@@ -235,7 +236,8 @@ def events(
                 "type": r.type,
                 "status": r.status,
                 "occurredAt": r.occurred,
-                "payload": r.payload,
+                "payload": r.payload | {"retryAt": timestamp(datetime.fromisoformat(r.payload["retryAt"]))}
+                if r.type == "JOB_RETRY_SCHEDULED" and r.payload.get("retryAt") else r.payload,
             }
             for r in rows
         ],

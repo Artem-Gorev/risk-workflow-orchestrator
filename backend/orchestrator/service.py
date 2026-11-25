@@ -5,7 +5,11 @@ from backend.workers.synthetic import in_synthetic_period, period_label
 
 from .catalog import latest
 from .resources import conflicts, resolve_accesses
-from .storage import DomainError, encode, load_inputs, query
+from .storage import DomainError, encode, load_inputs, query, timestamp
+
+
+def shared_accesses(job):
+    return [access for access in job.accesses if not access.get("isolated")]
 
 
 class JobService:
@@ -40,6 +44,7 @@ class JobService:
         *,
         job_id=None,
         duration=None,
+        batch_id=None,
     ):
         delivery = encode([trigger["type"], trigger["initiatorId"], key]) if key else None
         if delivery:
@@ -89,12 +94,18 @@ class JobService:
                 self.event(conn, ongoing, "JOB_TRIGGER_JOINED", {"trigger": trigger})
                 return ongoing, False
         accesses = resolve_accesses(definition.access_templates, day)
+        if batch_id:
+            for access in accesses:
+                if process == "risk-summary" or access["mode"] == "WRITE" or (
+                    access["resourceKey"] == "risk_parameters"
+                ):
+                    access["isolated"] = True
         job = query(
             conn,
             """INSERT INTO jobs(id,process,day,trigger,accesses,delivery,status,version,priority,
-                requested_priority,handler,duration,bindings)
+                requested_priority,handler,duration,bindings,batch_id)
                     VALUES (:id,:process,:day,CAST(:trigger AS jsonb),CAST(:access AS jsonb),:key,'QUEUED',
-                    :version,:priority,:requested,:handler,:duration,CAST(:bindings AS jsonb))
+                    :version,:priority,:requested,:handler,:duration,CAST(:bindings AS jsonb),:batch)
                     RETURNING *""",
             id=job_id or uuid4(),
             process=process,
@@ -108,6 +119,7 @@ class JobService:
             duration=definition.duration if duration is None else duration,
             bindings=encode(definition.bindings),
             key=delivery,
+            batch=batch_id,
         ).one()
         self.event(
             conn,
@@ -152,7 +164,7 @@ class JobService:
                 conn,
                 "SELECT id,accesses FROM jobs WHERE status IN ('STARTING','RUNNING') ORDER BY seq",
             ).all()
-            active = [dict(access, jobId=str(row.id)) for row in owners for access in row.accesses]
+            active = [dict(access, jobId=str(row.id)) for row in owners for access in shared_accesses(row)]
             candidates = query(
                 conn,
                 """SELECT *, extract(epoch FROM now()-queued)>=240 AS aged FROM jobs
@@ -162,10 +174,11 @@ class JobService:
             ).all()
             protected: list[dict] = []
             for job in candidates:
-                blocked = conflicts(job.accesses, active)
-                ahead = conflicts(job.accesses, protected) if not blocked else []
+                accesses = shared_accesses(job)
+                blocked = conflicts(accesses, active)
+                ahead = conflicts(accesses, protected) if not blocked else []
                 if job.aged:
-                    protected.extend(dict(a, jobId=str(job.id)) for a in job.accesses)
+                    protected.extend(dict(a, jobId=str(job.id)) for a in accesses)
                 if blocked or ahead or len(owners) >= self.slots:
                     reason = {
                         "code": "RESOURCE_CONFLICT"
@@ -200,7 +213,7 @@ class JobService:
                     conn,
                     reserved,
                     "JOB_RESERVED",
-                    {"reservedAccesses": job.accesses, "attempt": reserved.attempt},
+                    {"reservedAccesses": accesses, "attempt": reserved.attempt},
                 )
                 return reserved
         return None
@@ -245,6 +258,7 @@ class JobService:
                 "LEASE_EXPIRED",
                 "EXECUTION_INTERRUPTED",
                 "DISPATCH_ERROR",
+                "EXECUTION_TIMEOUT",
             }
             and job.attempt < 3
         ):
@@ -265,8 +279,8 @@ class JobService:
                     {
                         "attempt": job.attempt,
                         "error": error,
-                        "retryAt": retry.retry_at.isoformat(),
-                        "releasedAccesses": job.accesses,
+                        "retryAt": timestamp(retry.retry_at),
+                        "releasedAccesses": shared_accesses(job),
                     },
                 )
             return
@@ -285,7 +299,7 @@ class JobService:
                 conn,
                 failed,
                 "JOB_FAILED",
-                {"error": error, "releasedAccesses": job.accesses},
+                {"error": error, "releasedAccesses": shared_accesses(job)},
             )
 
     def heartbeat(self, job):
@@ -311,7 +325,7 @@ class JobService:
                 return
             if row.finished:
                 raise DomainError("JOB_STATE_CONFLICT", "Задача уже завершилась")
-            released = row.accesses if row.execution else []
+            released = shared_accesses(row) if row.execution else []
             cancelled = query(
                 conn,
                 """UPDATE jobs SET status='CANCELLED',lease_until=NULL,reason=NULL,
@@ -368,8 +382,43 @@ class JobService:
                     "Набор выходов отличается от контракта",
                 )
                 return
+            targets = [(access, access["scope"].get("date", "*")) for access in writes]
+            if demo_id := current.trigger.get("demoId"):
+                targets = [(access, f"{demo_id}:{partition}") for access, partition in targets]
+            snapshot = current.snapshot
+            if snapshot and snapshot.get("attempt", 1) < current.attempt and not (
+                current.batch_id or current.replay_of
+            ):
+                try:
+                    _, live_versions = load_inputs(conn, current)
+                except DomainError as error:
+                    self.fail(conn, current, error.code, str(error))
+                    return
+                if versions != live_versions:
+                    self.fail(conn, current, "STALE_INPUTS", "Входные данные изменились после первой попытки")
+                    return
+                snapshot_start = snapshot.get("startedAt") or query(
+                    conn,
+                    "SELECT min(occurred) FROM job_events WHERE job_id=:id AND type='JOB_STARTED'",
+                    id=current.id,
+                ).scalar_one()
+                if any(
+                    query(
+                        conn,
+                        """SELECT 1 FROM resource_values r JOIN jobs j ON j.id=r.source
+                           WHERE r.key=:key AND r.partition=:day
+                           AND coalesce(j.finished>CAST(:started AS timestamptz), j.seq>:seq)""",
+                        key=access["resourceKey"],
+                        day=partition,
+                        started=snapshot_start,
+                        seq=current.seq,
+                    ).first()
+                    for access, partition in targets
+                ):
+                    self.fail(conn, current, "STALE_OUTPUT", "После снимка уже опубликован новый результат")
+                    return
             published = []
-            for access in writes:
+            for access, partition in targets:
                 key, scope = access["resourceKey"], access["scope"]
                 if current.replay_of:
                     original = query(
@@ -388,9 +437,11 @@ class JobService:
                         return
                     published.append(previous)
                     continue
-                partition = scope.get("date", "*")
-                if current.trigger.get("demoId"):
-                    partition = f"{current.trigger['demoId']}:{partition}"
+                if current.batch_id:
+                    published.append(
+                        {"resourceKey": key, "scope": scope, "revision": 1, "value": outputs[key]}
+                    )
+                    continue
                 revision = query(
                     conn,
                     """INSERT INTO resource_values(key,partition,value,source)
@@ -427,4 +478,4 @@ class JobService:
                 result=encode(result),
                 id=job.id,
             ).one()
-            self.event(conn, done, "JOB_SUCCEEDED", {"releasedAccesses": current.accesses})
+            self.event(conn, done, "JOB_SUCCEEDED", {"releasedAccesses": shared_accesses(current)})

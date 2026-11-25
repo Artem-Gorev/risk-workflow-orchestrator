@@ -15,35 +15,45 @@ def add_step(service, conn, batch, code):
         code,
         batch.day,
         {"type": "MANUAL", "initiatorId": batch.actor, "batchId": str(batch.id)},
+        batch_id=batch.id,
     )
     if job.handler != code or job.bindings:
         raise DomainError(
             "BATCH_CONTRACT_CHANGED",
             f"Для шага {code} нужен стандартный контракт ресурсов",
         )
-    query(conn, "UPDATE jobs SET batch_id=:b WHERE id=:j", b=batch.id, j=job.id)
     return job
 
 
-def create_batch(runtime, day, revision, actor):
-    case = next((c for c in cases_for(*configured_period()) if c.day == day), None)
-    if case is None:
-        start, end = configured_period()
-        raise DomainError("DATE_OUTSIDE_SYNTHETIC_RANGE", f"Допустимый диапазон {start} – {end}", 422)
+def create_batch(runtime, day, revision, actor, key=None):
     with runtime.storage.transaction() as conn:
+        if key:
+            existing = query(
+                conn, "SELECT * FROM risk_batches WHERE actor=:actor AND delivery_key=:key",
+                actor=actor, key=key,
+            ).first()
+            if existing:
+                if (existing.day, existing.factor_revision) != (day, revision):
+                    raise DomainError("IDEMPOTENCY_CONFLICT", "Ключ уже связан с другими параметрами серии")
+                return existing.id, False
+        start, end = configured_period()
+        if not start <= day <= end:
+            raise DomainError("DATE_OUTSIDE_SYNTHETIC_RANGE", f"Допустимый диапазон {start} – {end}", 422)
+        case = next(c for c in cases_for(start, end) if c.day == day)
         factors = query(conn, "SELECT value FROM factor_history WHERE revision=:r", r=revision).first()
         if not factors:
             raise DomainError("UNKNOWN_REVISION", "Неизвестная ревизия коэффициентов", 422)
         expected, _ = case_expectations(case.inputs, factors.value)
         batch = query(
             conn,
-            """INSERT INTO risk_batches(id,day,factor_revision,expected,actor)
-            VALUES (:id,:d,:r,CAST(:e AS jsonb),:a) RETURNING *""",
+            """INSERT INTO risk_batches(id,day,factor_revision,expected,actor,delivery_key)
+            VALUES (:id,:d,:r,CAST(:e AS jsonb),:a,:key) RETURNING *""",
             id=uuid4(),
             d=day,
             r=revision,
             e=encode(expected),
             a=actor,
+            key=key,
         ).one()
         try:
             with conn.begin_nested():
@@ -57,7 +67,11 @@ def create_batch(runtime, day, revision, actor):
                 id=batch.id,
             )
     runtime.wake.set()
-    return {"batchId": batch.id}
+    return batch.id, True
+
+
+def actual_value(job):
+    return job.result["outputs"][0]["value"] if job and job.result else None
 
 
 def advance(service):
@@ -73,7 +87,12 @@ def advance(service):
             elif any(j.status != "SUCCEEDED" for j in rows):
                 continue
             elif any(j.process == SUMMARY for j in rows):
-                status, reason = "SUCCEEDED", None
+                mismatches = [j.process for j in rows if actual_value(j) != batch.expected[j.process]]
+                if mismatches:
+                    status = "FAILED"
+                    reason = "Расхождение с контрольными значениями · " + ", ".join(mismatches)
+                else:
+                    status, reason = "SUCCEEDED", None
             else:
                 try:
                     with conn.begin_nested():
@@ -108,7 +127,7 @@ def batch_record(conn, batch_id):
     steps = []
     for code in (*RISKS, SUMMARY):
         j = rows.get(code)
-        actual = j.result["outputs"][0]["value"] if j and j.result else None
+        actual = actual_value(j)
         steps.append(
             {
                 "processId": code,
