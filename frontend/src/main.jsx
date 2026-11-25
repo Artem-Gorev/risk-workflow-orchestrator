@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Menu, X } from 'lucide-react';
 import { typograph } from './typography.js';
@@ -32,7 +32,7 @@ const titles = {
 const managementPages = ['processes', 'resources', 'schedules', 'audit'];
 
 async function checkReadiness(signal) {
-  const response = await fetch('/api/v1/health/ready', {
+  const response = await fetch('/health/ready', {
     cache: 'no-store',
     headers: { Accept: 'application/json' },
     signal: AbortSignal.any([signal, AbortSignal.timeout(4500)]),
@@ -65,6 +65,9 @@ function useReference() {
 function App() {
   const [route, setRoute] = useState(getRoute);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuToggle = useRef(null);
+  const sidebar = useRef(null);
+  const menuClose = useRef(null);
   const readiness = usePoll(checkReadiness, [], { interval: 5000 });
   const reference = useReference();
   const { page, id } = route;
@@ -81,12 +84,36 @@ function App() {
     window.addEventListener('hashchange', update);
     return () => window.removeEventListener('hashchange', update);
   }, []);
-  useEffect(() => { document.title = title + ' · RiskFlow'; }, [title]);
+  useEffect(() => { document.title = title + ' — RiskFlow'; }, [title]);
   useEffect(() => {
     if (!menuOpen) return;
-    const close = (event) => { if (event.key === 'Escape') setMenuOpen(false); };
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
+    menuClose.current?.focus({ preventScroll: true });
+    const mobile = window.matchMedia('(max-width: 880px)');
+    const onResize = () => { if (!mobile.matches) setMenuOpen(false); };
+    const onKey = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setMenuOpen(false);
+      }
+      if (event.key !== 'Tab') return;
+      const links = Array.from(sidebar.current.querySelectorAll('a[href], button'));
+      const first = links[0];
+      const last = links.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    mobile.addEventListener('change', onResize);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      mobile.removeEventListener('change', onResize);
+      window.removeEventListener('keydown', onKey);
+      menuToggle.current?.focus({ preventScroll: true });
+    };
   }, [menuOpen]);
 
   let content;
@@ -100,14 +127,15 @@ function App() {
   else content = <Empty><a href={href('overview')}>{typograph('Вернуться к обзору')}</a></Empty>;
 
   return <div className="app-layout">
-    <a className="skip-link" href="#workspace-content" onClick={(event) => {
+    <a className="skip-link" href="#workspace-content" tabIndex={menuOpen ? -1 : undefined} onClick={(event) => {
       event.preventDefault(); document.getElementById('workspace-content')?.focus();
     }}>{typograph('К содержанию')}</a>
-    {menuOpen && <button className="menu-scrim" aria-label="Закрыть меню" onClick={() => setMenuOpen(false)} />}
-    <aside className={'sidebar' + (menuOpen ? ' sidebar-open' : '')} id="main-navigation">
+    {menuOpen && <button className="menu-scrim" type="button" tabIndex={-1} aria-hidden="true" onClick={() => setMenuOpen(false)} />}
+    <aside ref={sidebar} className={'sidebar' + (menuOpen ? ' sidebar-open' : '')} id="main-navigation"
+      role={menuOpen ? 'dialog' : undefined} aria-modal={menuOpen || undefined} aria-label={menuOpen ? 'Меню RiskFlow' : undefined}>
       <div className="brand-row"><a className="brand" href={href('overview')} onClick={() => setMenuOpen(false)}>
         Risk<span className="brand-accent">Flow</span>
-      </a><Button className="sidebar-close" variant="ghost" aria-label="Закрыть меню" onClick={() => setMenuOpen(false)}><X size={20} /></Button></div>
+      </a><Button ref={menuClose} className="sidebar-close" variant="ghost" aria-label="Закрыть меню" onClick={() => setMenuOpen(false)}><X size={20} /></Button></div>
       <nav aria-label="Основная навигация">
         {navigation.map((group) => <div className="nav-group" key={group.title}>
           <div className="nav-title">{group.title}</div>
@@ -118,10 +146,10 @@ function App() {
         </div>)}
       </nav>
     </aside>
-    <div className="app-main">
+    <div className="app-main" inert={menuOpen}>
       <header className="topbar">
         <div className="mobile-brand">
-          <Button className="menu-toggle" variant="ghost" aria-label="Открыть меню" aria-controls="main-navigation"
+          <Button ref={menuToggle} className="menu-toggle" variant="ghost" aria-label="Открыть меню" aria-controls="main-navigation"
             aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><Menu size={21} /></Button>
           <a className="brand" href={href('overview')}>Risk<span className="brand-accent">Flow</span></a>
         </div>

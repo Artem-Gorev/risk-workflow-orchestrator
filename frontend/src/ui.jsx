@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Children, cloneElement, isValidElement, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { DateControl } from './DateControl.jsx';
 import { SelectControl } from './SelectControl.jsx';
@@ -61,7 +61,7 @@ export async function api(path, { method = 'GET', body, signal, headers } = {}) 
   };
   const details = Array.isArray(data?.detail) ? data.detail : [];
   const message = data?.message || (details.length
-    ? details.map(({ loc, msg }) => loc.slice(1).join('.') + ' — ' + msg).join(' · ')
+    ? details.map(({ loc, msg }) => loc.slice(1).join('.') + ' — ' + msg).join(', ')
     : messages[response.status] || (response.status >= 500 || response.ok
       ? 'API временно недоступен. Повторите запрос.'
       : 'Сервер отклонил запрос.'));
@@ -214,11 +214,28 @@ export function Field({ label, hint, children }) {
   </div>;
 }
 
-export function Table({ headers, children, caption }) {
-  return <div className="table-wrap"><table>
+export function Table({ headers, children, caption, mobile }) {
+  const records = mobile !== false && (mobile != null || headers.length > 3);
+  const { title = 0, status, wide = [], action = [], labels = headers } = mobile || {};
+  const rows = records ? Children.map(children, (row) => {
+    if (!isValidElement(row) || row.type !== 'tr') return row;
+    const cells = Children.toArray(row.props.children).map((cell, index) => {
+      if (!isValidElement(cell)) return cell;
+      const layout = index === title ? 'title' : index === status ? 'status'
+        : action.includes(index) ? 'action' : wide.includes(index) ? 'wide' : 'field';
+      const label = (layout === 'field' || layout === 'wide') && (labels[index] ?? headers[index]);
+      return cloneElement(cell, {
+        role: cell.type === 'th' ? 'rowheader' : 'cell',
+        'data-record': layout,
+      }, label && <span className="record-label" aria-hidden="true">{typograph(label)}</span>, cell.props.children);
+    });
+    return cloneElement(row, { role: 'row' }, cells);
+  }) : children;
+  return <div className={'table-wrap' + (records ? ' table-records' : '')}><table role="table">
     {caption && <caption>{typograph(caption)}</caption>}
-    <thead><tr>{headers.map((title, index) => <th key={index} scope="col">{typograph(title)}</th>)}</tr></thead>
-    <tbody>{children}</tbody>
+    <thead role="rowgroup"><tr role="row">{headers.map((label, index) =>
+      <th key={index} role="columnheader" scope="col">{typograph(label)}</th>)}</tr></thead>
+    <tbody role="rowgroup">{rows}</tbody>
   </table></div>;
 }
 
@@ -234,7 +251,7 @@ export function ErrorText({ error, retry, stale = false }) {
   if (!error) return null;
   return <div className="error-box" role="alert">
     <div><strong>{typograph(stale ? 'Данные могут быть устаревшими' : error.status === 409 ? 'Конфликт' : 'Не удалось выполнить запрос')}</strong>
-      <div>{shortCopy(error.message || String(error))}{error.code && <span className="error-code"> · {error.code}</span>}</div>
+      <div>{shortCopy(error.message || String(error))}{error.code && <span className="error-code"> ({error.code})</span>}</div>
     </div>
     {retry && <Button variant="ghost" onClick={retry}>Повторить</Button>}
   </div>;

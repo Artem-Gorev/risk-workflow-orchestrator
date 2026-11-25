@@ -63,7 +63,7 @@ export function Job({ id, reference }) {
         <Status value={job.status} />
       </header>
       {canManage &&
-        <div className="actions">
+        <div className="actions job-actions">
           {['QUEUED', 'WAITING'].includes(job.status) && <Button variant="danger" disabled={write.pending} onClick={() => act('cancel')}>
             Отменить
           </Button>}
@@ -97,22 +97,25 @@ export function Job({ id, reference }) {
         {job.batchId && <div><dt>Серия расчётов</dt><dd><a href={href('batch', job.batchId)}>{job.batchId.slice(0, 8)}</a></dd></div>}
         {job.trigger?.demoId && <div><dt>Демонстрация</dt><dd><a href={href('demo', job.trigger.demoId)}>{job.trigger.demoId.slice(0, 8)}</a></dd></div>}
       </dl>
-      {job.waitReason && <Panel title="Почему задача ждёт" className="waiting-panel">
-        <WaitDetails reason={job.waitReason} />
-      </Panel>}
-      {job.error && <ErrorText error={job.error} />}
-      {job.result && <Panel title="Результат" className="job-result">
-        <Table headers={['Ресурс', 'Область', 'Ревизия', 'Значение']}>
-          {job.result.outputs.map((output) => <tr key={output.resourceKey + (output.scope.date || '')}>
-            <td className="mono">{output.resourceKey}</td><td><Scope scope={output.scope} /></td>
-            <td>{output.revision}</td><td className="output-value"><Value value={output.value} digits={2} /></td>
-          </tr>)}
-        </Table>
-      </Panel>}
+      {(job.waitReason || job.error || job.result) && <div className="stack job-measurement">
+        {job.waitReason && <Panel title="Почему задача ждёт" className="waiting-panel">
+          <WaitDetails reason={job.waitReason} />
+        </Panel>}
+        {job.error && <ErrorText error={job.error} />}
+        {job.result && <Panel title="Результат" className="job-result">
+          <Table headers={['Ресурс', 'Область', 'Ревизия', 'Значение']} mobile={{ status: 3 }}>
+            {job.result.outputs.map((output) => <tr key={output.resourceKey + (output.scope.date || '')}>
+              <td className="mono">{output.resourceKey}</td><td><Scope scope={output.scope} /></td>
+              <td>{output.revision}</td><td className="output-value"><Value value={output.value} digits={2} /></td>
+            </tr>)}
+          </Table>
+        </Panel>}
+      </div>}
       {job.result && <Panel title="Происхождение результата">
         <QueryState query={provenance}>{(data) => <>
           {coefficientStatuses[data.coefficientStatus] && <p className="subtle-box">{typograph(coefficientStatuses[data.coefficientStatus])}</p>}
-          {data.inputs.length ? <Table headers={['Входной ресурс', 'Область', 'Ревизия', 'Задача-источник', 'Коэффициенты']}>
+          {data.inputs.length ? <Table headers={['Входной ресурс', 'Область', 'Ревизия', 'Задача-источник', 'Коэффициенты']}
+            mobile={{ wide: [3, 4] }}>
             {data.inputs.map((input) => <tr key={input.resourceKey + (input.scope.date || '')}>
               <td className="mono">{input.resourceKey}</td><td><Scope scope={input.scope} /></td><td>{input.revision}</td>
               <td><JobLink id={input.sourceJobId}>{input.sourceProcessId ? processName(reference, input.sourceProcessId) : undefined}</JobLink></td>
@@ -171,7 +174,7 @@ function JobEvents({ id, finished }) {
       {events.map((event) => <li key={event.eventId}>
         <div className="event-entry">
           <div className="event-head"><strong>{typograph(eventNames[event.type]) || event.type}</strong><Status value={event.status} /></div>
-          <div className="muted event-meta"><span className="mono">#{event.eventId}</span> · {formatDate(event.occurredAt)}</div>
+          <div className="muted event-meta"><span className="mono">#{event.eventId}</span> — {formatDate(event.occurredAt)}</div>
           {event.payload?.waitReason && <WaitDetails reason={event.payload.waitReason} />}
           {event.payload?.attempt != null && <p className="muted">Попытка {event.payload.attempt}</p>}
           {event.payload?.retryAt && <p>Повтор в{'\u00a0'}{formatDate(event.payload.retryAt)}</p>}

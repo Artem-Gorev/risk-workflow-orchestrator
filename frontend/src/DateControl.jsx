@@ -88,6 +88,7 @@ function placeCalendar(anchor, panel) {
   const box = anchor.getBoundingClientRect();
   const topEdge = (window.visualViewport?.offsetTop ?? 0) + spacing;
   const bottomEdge = Math.min(window.innerHeight, topEdge - spacing + (window.visualViewport?.height ?? window.innerHeight)) - spacing;
+  panel.style.maxHeight = `${Math.max(0, bottomEdge - topEdge)}px`;
   const width = panel.offsetWidth;
   const height = panel.offsetHeight;
   const rightEdge = document.documentElement.clientWidth - spacing;
@@ -135,6 +136,7 @@ export function DateControl({ control, id, labelId, describedBy }) {
   ) : [];
 
   useLayoutEffect(() => {
+    // Required empty text uses the browser's required constraint. Range and format use the same text as the inline error.
     input.current.setCustomValidity(text && !disabled && !readOnly ? error : '');
   }, [text, error, disabled, readOnly]);
 

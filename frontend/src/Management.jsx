@@ -20,7 +20,7 @@ function scopeLabel(scope) {
 }
 
 function modeLabel(mode) {
-  return mode === 'WRITE' ? 'Запись · WRITE' : 'Чтение · READ';
+  return mode === 'WRITE' ? 'Запись (WRITE)' : 'Чтение (READ)';
 }
 
 function ManagementHeading({ title, compact, children }) {
@@ -30,6 +30,14 @@ function ManagementHeading({ title, compact, children }) {
       {children}
     </div>
   );
+}
+
+function ManagementDate({ value }) {
+  return value ? <time className="management-time" dateTime={value}>{formatDate(value)}</time> : '—';
+}
+
+function ResourceState({ active, children }) {
+  return <span className="management-resource-state" data-active={active || undefined}>{children}</span>;
 }
 
 function LoadState({ poll }) {
@@ -168,9 +176,9 @@ function ProcessEditor({ process, catalog, resources, onSaved }) {
 
   return (
     <Panel
-      title={draft.expectedVersion ? `Настройки процесса · версия\u00a0${draft.expectedVersion}` : 'Новый процесс'}
+      title={draft.expectedVersion ? `Настройки процесса, версия\u00a0${draft.expectedVersion}` : 'Новый процесс'}
     >
-      <form className="stack" onSubmit={submit}>
+      <form className="stack management-form" onSubmit={submit}>
         <div className="form-grid">
           <Field label="Код процесса" hint="Строчные латинские буквы, числа, «_» и «-»">
             <input required maxLength={64} pattern={codePattern} value={draft.code}
@@ -183,7 +191,7 @@ function ProcessEditor({ process, catalog, resources, onSaved }) {
           <Field label="Обработчик">
             <select required disabled={save.pending} value={draft.handler} onChange={(event) => setDraft({ ...draft, handler: event.target.value, bindings: {} })}>
               <option value="">Выберите обработчик</option>
-              {catalog.map((item) => <option value={item.processId} key={item.processId}>{item.name} · {item.processId}</option>)}
+              {catalog.map((item) => <option value={item.processId} key={item.processId}>{item.name} ({item.processId})</option>)}
             </select>
           </Field>
           <Field label="Приоритет">
@@ -205,7 +213,7 @@ function ProcessEditor({ process, catalog, resources, onSaved }) {
               {handler.accessTemplates.map((access) => {
                 const key = access.resourceKey;
                 return (
-                  <Field key={key} label={key} hint={`${modeLabel(access.mode)} · ${scopeLabel(access.scope)}`}>
+                  <Field key={key} label={key} hint={`${modeLabel(access.mode)} — ${scopeLabel(access.scope)}`}>
                     <select disabled={save.pending} value={draft.bindings[key] ?? key} onChange={(event) => {
                       const bindings = { ...draft.bindings };
                       if (event.target.value === key) delete bindings[key];
@@ -222,17 +230,17 @@ function ProcessEditor({ process, catalog, resources, onSaved }) {
             </div>
           </div>
         )}
-        <div className="actions">
-          <label><input type="checkbox" disabled={save.pending} checked={draft.isActive} onChange={(event) => set('isActive', event.target.checked)} /> Активен</label>
-          <label><input type="checkbox" disabled={save.pending} checked={draft.joinActive} onChange={(event) => set('joinActive', event.target.checked)} /> Объединять активные заявки</label>
+        <div className="actions management-checks">
+          <label className="management-check"><input type="checkbox" disabled={save.pending} checked={draft.isActive} onChange={(event) => set('isActive', event.target.checked)} /> <span>Активен</span></label>
+          <label className="management-check"><input type="checkbox" disabled={save.pending} checked={draft.joinActive} onChange={(event) => set('joinActive', event.target.checked)} /> <span>Объединять активные заявки</span></label>
         </div>
         {revisionConflict && (
           <Button type="button" onClick={verify} disabled={save.pending}>Загрузить актуальную версию</Button>
         )}
         {latest && (
           <div className="stack">
-            <strong>{`На\u00a0сервере · версия\u00a0${latest.processVersion}`}</strong>
-            <Table headers={['Поле', 'Актуальное значение', 'Ваше значение']}>
+            <strong>{`На\u00a0сервере версия\u00a0${latest.processVersion}`}</strong>
+            <Table headers={['Поле', 'Актуальное значение', 'Ваше значение']} mobile={{ title: 0 }}>
               {[
                 ['Название', latest.name, draft.name],
                 ['Описание', typograph(latest.description), typograph(draft.description)],
@@ -246,7 +254,7 @@ function ProcessEditor({ process, catalog, resources, onSaved }) {
                 <tr key={label}><th scope="row">{label}</th><td>{comparisonValue(server)}</td><td>{comparisonValue(local)}</td></tr>
               ))}
             </Table>
-            <div className="actions">
+            <div className="actions management-compare-actions">
               <Button type="button" onClick={() => {
                 setDraft((current) => ({ ...current, expectedVersion: latest.processVersion }));
                 setLatest(null);
@@ -308,7 +316,7 @@ function Processes({ reference }) {
         <LoadState poll={poll} />
         {poll.data?.processes.length === 0 && <Empty>Процессы ещё не созданы</Empty>}
         {poll.data?.processes.length > 0 && (
-          <Table headers={['Процесс', 'Версия', 'Приоритет', 'Длительность', 'Состояние', 'Действие']}>
+          <Table headers={['Процесс', 'Версия', 'Приоритет', 'Длительность', 'Состояние', 'Действие']} mobile={{ status: 4, action: [5] }}>
             {poll.data.processes.map((process) => (
               <tr key={process.processId}>
                 <td><strong>{process.name}</strong><div className="muted mono">{process.processId}</div></td>
@@ -316,7 +324,10 @@ function Processes({ reference }) {
                 <td>{process.priority}</td>
                 <td>{`${process.executionSeconds}\u00a0с`}</td>
                 <td>{process.isActive ? 'Активен' : 'Выключен'}</td>
-                <td><Button type="button" variant="ghost" onClick={() => edit(process)} aria-label={`Изменить процесс «${process.name}»`}>Изменить</Button></td>
+                <td>
+                  <Button variant="ghost" className="management-edit" onClick={() => edit(process)}
+                    aria-label={`Изменить процесс «${process.name}»`}><span>Изменить</span></Button>
+                </td>
               </tr>
             ))}
           </Table>
@@ -358,7 +369,7 @@ function ResourceEditor({ kinds, onSaved }) {
   }
 
   return (
-    <form className="stack" onSubmit={submit}>
+    <form className="stack management-form" onSubmit={submit}>
       <div className="form-grid">
         <Field label="Ключ ресурса">
           <input required maxLength={64} pattern={codePattern} value={key} readOnly={save.uncertain || save.pending} onChange={(event) => setKey(event.target.value)} />
@@ -370,7 +381,7 @@ function ResourceEditor({ kinds, onSaved }) {
           </select>
         </Field>
       </div>
-      <label><input type="checkbox" disabled={save.pending} checked={copyValues} onChange={(event) => setCopyValues(event.target.checked)} /> Скопировать исходные значения</label>
+      <label className="management-check"><input type="checkbox" disabled={save.pending} checked={copyValues} onChange={(event) => setCopyValues(event.target.checked)} /> <span>Скопировать исходные значения</span></label>
       <SaveState save={save} verify={verify} />
       <div className="actions">
         <Button type="submit" variant="primary" disabled={save.pending || save.uncertain || !kinds.length}>
@@ -396,7 +407,7 @@ function Resources({ reference }) {
         <LoadState poll={poll} />
         {data?.resources.length === 0 && <Empty>Ресурсы ещё не настроены</Empty>}
         {data?.resources.length > 0 && (
-          <Table headers={['Ресурс и область', 'Чтение · READ', 'Запись · WRITE', 'Удерживают', 'Ожидают']}>
+          <Table headers={['Ресурс и область', 'Чтение (READ)', 'Запись (WRITE)', 'Удерживают', 'Ожидают']} mobile={{ wide: [3, 4] }}>
             {data.resources.map((resource) => {
               const key = resource.resource_key;
               const users = { READ: [], WRITE: [] };
@@ -418,29 +429,31 @@ function Resources({ reference }) {
                   {['READ', 'WRITE'].map((mode) => (
                     <td key={mode}>
                       {users[mode].length ? users[mode].map((process) => (
-                        <div key={process.processId}>
+                        <div className="management-resource-entry" key={process.processId}>
                           {names.get(process.processId) ?? process.processId}
-                          {!process.isActive && <small className="muted"> · выключен</small>}
+                          {!process.isActive && <small className="muted"> (выключен)</small>}
                         </div>
                       )) : <span className="muted">—</span>}
                     </td>
                   ))}
                   <td>
-                    {owners.length ? owners.map((owner) => (
-                      <div key={owner.job_id}>
+                    <ResourceState active={owners.length > 0}>{owners.length ? 'Занят' : 'Свободен'}</ResourceState>
+                    {owners.map((owner) => (
+                      <div className="management-resource-entry" key={owner.job_id}>
                         <JobLink id={owner.job_id}>{names.get(data.activeProcesses[owner.job_id]) ?? data.activeProcesses[owner.job_id] ?? owner.job_id}</JobLink>
-                        <div className="muted">{modeLabel(owner.mode)} · {scopeLabel(owner.scope)}</div>
+                        <div className="muted">{modeLabel(owner.mode)} — {scopeLabel(owner.scope)}</div>
                       </div>
-                    )) : <span className="muted">Свободен</span>}
+                    ))}
                   </td>
                   <td>
-                    {waiting.length ? waiting.map(({ job, conflict }) => (
-                      <div key={`${job.id}-${conflict.blockingJobId}-${conflict.scope?.date ?? 'global'}`}>
+                    <ResourceState active={waiting.length > 0}>{waiting.length ? 'Есть ожидание' : 'Нет ожидания'}</ResourceState>
+                    {waiting.map(({ job, conflict }) => (
+                      <div className="management-resource-entry" key={`${job.id}-${conflict.blockingJobId}-${conflict.scope?.date ?? 'global'}`}>
                         <JobLink id={job.id}>{names.get(job.process) ?? job.process}</JobLink>
-                        <div className="muted">{modeLabel(conflict.requestedMode)} · {scopeLabel(conflict.scope)}</div>
+                        <div className="muted">{modeLabel(conflict.requestedMode)} — {scopeLabel(conflict.scope)}</div>
                         <small>{'Владелец:\u00a0'}<JobLink id={conflict.blockingJobId}>{conflict.blockingJobId.slice(0, 8)}</JobLink></small>
                       </div>
-                    )) : <span className="muted">Нет ожидания</span>}
+                    ))}
                   </td>
                 </tr>
               );
@@ -505,15 +518,15 @@ function ScheduleEditor({ row, processes, onSaved }) {
         setStored(record);
         const titles = processes.map((process) => [process.processId, process.name]);
         const name = new Map(titles).get(record.process) ?? record.process;
-        return `На сервере: ${name} · ${scheduleFrequency(record)} · ${record.local_time.slice(0, 5)}\u00a0МСК · ${record.enabled ? 'включено' : 'выключено'}`;
+        return `Расписание на сервере — ${name}, ${scheduleFrequency(record).toLocaleLowerCase('ru')}, ${record.local_time.slice(0, 5)}\u00a0МСК, ${record.enabled ? 'включено' : 'выключено'}`;
       }
       return `Расписание ${draft.code} пока отсутствует на сервере`;
     }, true);
   }
 
   return (
-    <Panel title={stored ? `Расписание · ${stored.id}` : 'Новое расписание'}>
-      <form className="stack" onSubmit={submit}>
+    <Panel title={stored ? `Расписание ${stored.id}` : 'Новое расписание'}>
+      <form className="stack management-form" onSubmit={submit}>
         <div className="form-grid">
           <Field label="Код расписания">
             <input required maxLength={64} pattern={codePattern} value={draft.code} readOnly={Boolean(stored) || save.uncertain || save.pending}
@@ -523,7 +536,7 @@ function ScheduleEditor({ row, processes, onSaved }) {
             <select required disabled={save.pending} value={draft.processId} onChange={(event) => set('processId', event.target.value)}>
               <option value="">Выберите процесс</option>
               {processes.map((process) => (
-                <option key={process.processId} value={process.processId}>{process.name}{process.isActive ? '' : ' · выключен'}</option>
+                <option key={process.processId} value={process.processId}>{process.name}{process.isActive ? '' : ' (выключен)'}</option>
               ))}
             </select>
           </Field>
@@ -546,7 +559,7 @@ function ScheduleEditor({ row, processes, onSaved }) {
             </Field>
           )}
         </div>
-        <label><input type="checkbox" disabled={save.pending} checked={draft.enabled} onChange={(event) => set('enabled', event.target.checked)} /> Расписание включено</label>
+        <label className="management-check"><input type="checkbox" disabled={save.pending} checked={draft.enabled} onChange={(event) => set('enabled', event.target.checked)} /> <span>Расписание включено</span></label>
         <SaveState save={save} verify={verify} />
         <div className="actions">
           <Button type="submit" variant="primary" disabled={save.pending || save.uncertain}>
@@ -587,7 +600,8 @@ function Schedules({ reference }) {
         <LoadState poll={poll} />
         {poll.data?.items.length === 0 && <Empty>Расписания ещё не настроены</Empty>}
         {poll.data?.items.length > 0 && (
-          <Table headers={['Расписание', 'Процесс', 'Периодичность', 'Время, МСК', 'Следующий запуск', 'Состояние', 'Действие']}>
+          <Table headers={['Расписание', 'Процесс', 'Периодичность', 'Время, МСК', 'Следующий запуск', 'Состояние', 'Действие']}
+            mobile={{ status: 5, wide: [1, 4], action: [6] }}>
             {poll.data.items.map((row) => {
               const managed = row.id === 'credit-daily' || row.id.startsWith('demo-') && !row.daily;
               return (
@@ -596,10 +610,11 @@ function Schedules({ reference }) {
                   <td>{names.get(row.process) ?? row.process}</td>
                   <td>{scheduleFrequency(row)}</td>
                   <td>{row.local_time.slice(0, 5)}</td>
-                  <td>{row.due ? formatDate(row.due) : '—'}</td>
+                  <td><ManagementDate value={row.due} /></td>
                   <td>{row.enabled ? 'Включено' : 'Выключено'}</td>
                   <td>{managed ? <span className="muted">Управляется стендом</span> :
-                    <Button type="button" variant="ghost" onClick={() => edit(row)} aria-label={`Изменить расписание ${row.id}`}>Изменить</Button>}</td>
+                    <Button variant="ghost" className="management-edit" onClick={() => edit(row)}
+                      aria-label={`Изменить расписание ${row.id}`}><span>Изменить</span></Button>}</td>
                 </tr>
               );
             })}
@@ -610,12 +625,13 @@ function Schedules({ reference }) {
         <LoadState poll={history} />
         {history.data && entries.length === 0 && <Empty>Доставки по расписанию ещё не зарегистрированы</Empty>}
         {entries.length > 0 && (
-          <Table headers={['Расписание', 'Плановое время', 'Фактическое время', 'Исход', 'Причина', 'Задача']}>
+          <Table headers={['Расписание', 'Плановое время', 'Фактическое время', 'Исход', 'Причина', 'Задача']}
+            mobile={{ status: 3, wide: [4] }}>
             {entries.map((entry) => (
               <tr key={entry.id}>
                 <td className="mono">{entry.schedule_id}</td>
-                <td>{formatDate(entry.planned)}</td>
-                <td>{formatDate(entry.observed)}</td>
+                <td><ManagementDate value={entry.planned} /></td>
+                <td><ManagementDate value={entry.observed} /></td>
                 <td>{deliveries[entry.status] ?? entry.status}</td>
                 <td>{entry.reason ? typograph(entry.reason) : '—'}</td>
                 <td>{entry.job_id ? <JobLink id={entry.job_id}>{entry.job_id.slice(0, 8)}</JobLink> : '—'}</td>
@@ -655,11 +671,11 @@ function Audit() {
         <LoadState poll={poll} />
         {poll.data?.length === 0 && <Empty>Изменений конфигурации пока нет</Empty>}
         {poll.data?.length > 0 && (
-          <Table headers={['№', 'Время', 'Действие', 'Объект', 'Инициатор', 'Данные']}>
+          <Table headers={['№', 'Время', 'Действие', 'Объект', 'Инициатор', 'Данные']} mobile={{ title: 2, action: [5] }}>
             {[...poll.data].reverse().map((event) => (
               <tr key={event.id}>
                 <td className="mono">{event.id}</td>
-                <td>{formatDate(event.occurred)}</td>
+                <td><ManagementDate value={event.occurred} /></td>
                 <td>{auditLabels[event.operation] ?? event.operation}</td>
                 <td className="mono">{event.object_id}</td>
                 <td>{event.actor}</td>

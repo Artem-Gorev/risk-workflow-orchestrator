@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { shortCopy, typograph } from './typography.js';
 import {
   api, BackButton, Button, Empty, ErrorText, Field, formatDate, go, href, JobLink, Loading,
@@ -11,6 +12,8 @@ const views = {
   history: ['SUCCEEDED', 'FAILED', 'CANCELLED'],
 };
 const viewNames = { queue: 'Очередь', active: 'Активные', history: 'История' };
+const emptyFilters = { status: '', processId: '', calculationDate: '', triggerType: '' };
+const emptyViews = { queue: 'Очередь пуста', active: 'Нет активных задач', history: 'История пока пуста' };
 export const reasonText = {
   RESOURCE_CONFLICT: 'Ожидание ресурса', NO_WORKER_SLOT: 'Все места исполнителей заняты',
   QUEUE_FAIRNESS: 'Ожидание очередности',
@@ -21,7 +24,7 @@ function useDraft(key) {
     try { return JSON.parse(sessionStorage.getItem(key) || '{}'); } catch { return {}; }
   });
   useEffect(() => {
-    try { sessionStorage.setItem(key, JSON.stringify(draft)); } catch {}
+    try { sessionStorage.setItem(key, JSON.stringify(draft)); } catch { /* session storage may be disabled */ }
   }, [draft, key]);
   return [draft, (patch) => setDraft((previous) => ({ ...previous, ...patch }))];
 }
@@ -92,7 +95,7 @@ function LaunchArea({ reference }) {
         <Field label="Процесс" hint={selected?.description}>
           <select required value={processId} onChange={(event) => setDraft({ processId: event.target.value })}>
             <option value="" disabled>Выберите процесс</option>
-            {processId && !selected && <option disabled value={processId}>{processId} · недоступен</option>}
+            {processId && !selected && <option disabled value={processId}>{processId} (недоступен)</option>}
             {active.map(({ processId: id, name }) => <option key={id} value={id}>{typograph(name)}</option>)}
           </select>
         </Field>
@@ -121,7 +124,7 @@ function LaunchArea({ reference }) {
           <select value={scenario?.calculationDate ?? ''} onChange={(event) => setDraft({ date: event.target.value })}>
             <option value="" disabled>Выберите сценарий</option>
             {cases.items.map((item) => <option key={item.calculationDate} value={item.calculationDate}>
-              {formatDate(item.calculationDate)} · {typograph(item.name)}
+              {formatDate(item.calculationDate)} — {typograph(item.name)}
             </option>)}
           </select>
         </Field>
@@ -158,10 +161,11 @@ function LaunchArea({ reference }) {
 
 export function Jobs({ view, initialStatus, reference }) {
   const initial = initialStatus?.toUpperCase();
-  const [filters, setFilters] = useState({
-    status: views[view].includes(initial) ? initial : '', processId: '', calculationDate: '', triggerType: '',
-  });
+  const [filters, setFilters] = useState({ ...emptyFilters, status: views[view].includes(initial) ? initial : '' });
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [cursors, setCursors] = useState(['']);
+  const filtersId = useId();
+  const filterCount = Object.values(filters).filter(Boolean).length;
   const cursor = cursors.at(-1);
   const query = usePoll((signal) => {
     const params = new URLSearchParams({ view, limit: '20' });
@@ -173,13 +177,23 @@ export function Jobs({ view, initialStatus, reference }) {
     setFilters((previous) => ({ ...previous, [name]: value }));
     setCursors(['']);
   }
-  return <div className="stack">
+  function resetFilters() {
+    setFilters(emptyFilters);
+    setCursors(['']);
+  }
+  return <div className="stack jobs-screen">
     <div className="segmented" aria-label="Представление задач">
       {Object.entries(viewNames).map(([page, name]) => <a key={page} href={href(page)}
         aria-current={page === view ? 'page' : undefined}>{name}</a>)}
     </div>
-    <div aria-label="Фильтры" role="group">
-      <div className="filter-grid">
+    <div className="jobs-filters" data-expanded={filtersOpen}>
+      <div className="jobs-filter-bar">
+        <Button aria-expanded={filtersOpen} aria-controls={filtersId} onClick={() => setFiltersOpen((open) => !open)}>
+          Фильтры{filterCount ? ` (${filterCount})` : ''}<ChevronDown size={17} aria-hidden="true" />
+        </Button>
+        {filterCount > 0 && <Button variant="ghost" onClick={resetFilters}>Сбросить</Button>}
+      </div>
+      <div className="filter-grid" id={filtersId} aria-label="Фильтры" role="group">
         <Field label="Статус"><select value={filters.status} onChange={(event) => change('status', event.target.value)}>
           <option value="">Все статусы</option>
           {views[view].map((status) => <option key={status} value={status}>{typograph(statuses[status])}</option>)}
@@ -198,16 +212,17 @@ export function Jobs({ view, initialStatus, reference }) {
     </div>
     <div>
       <QueryState query={query}>{({ items, nextCursor }) => <>
-        {items.length ? <Table headers={['Процесс', 'Расчётная дата', 'Источник', 'Статус', 'Время', 'Причина ожидания']}>
+        {items.length ? <Table headers={['Процесс', 'Расчётная дата', 'Источник', 'Статус', 'Время', 'Причина ожидания']}
+          mobile={{ status: 3, wide: [5] }}>
           {items.map((job) => <tr key={job.jobId}>
             <td><JobLink id={job.jobId}>{processName(reference, job.processId)}</JobLink>
               <div className="muted mono table-secondary">{job.jobId.slice(0, 8)}</div></td>
             <td>{formatDate(job.calculationDate)}</td><td>{typograph(sources[job.trigger?.type]) || '—'}</td>
             <td><Status value={job.status} /></td>
             <td>{formatDate(view === 'history' ? job.finishedAt : view === 'active' ? job.startedAt ?? job.queuedAt : job.queuedAt)}</td>
-            <td>{reasonText[job.waitReason?.code] || job.waitReason?.code || '—'}</td>
+            <td className={job.waitReason ? undefined : 'record-empty'}>{reasonText[job.waitReason?.code] || job.waitReason?.code || '—'}</td>
           </tr>)}
-        </Table> : <Empty>По выбранным фильтрам задач нет.</Empty>}
+        </Table> : <Empty>{filterCount ? 'По выбранным фильтрам задач нет' : emptyViews[view]}</Empty>}
         {(cursors.length > 1 || nextCursor) && <div className="pagination">
           <Button disabled={cursors.length === 1} onClick={() => setCursors(cursors.slice(0, -1))}>Назад</Button>
           <span>Страница {cursors.length}</span>
@@ -235,7 +250,7 @@ export function BatchLaunch({ reference }) {
     });
   }
 
-  return <div className="grid-2">
+  return <div className="grid-2 batch-launch">
     <Panel>
       <form className="stack form-stack" onSubmit={start}>
         <Field label="Расчётная дата" hint={<CalendarHint cases={cases} />}>
@@ -284,12 +299,13 @@ export function Batch({ id, reference }) {
           <div><span>Итог сводки</span><strong><Value value={summary.actual} digits={2} /></strong></div>
           <CheckState passed={summary.passed} />
         </div>}
-        <Table headers={['Процесс', 'Статус', 'Ожидалось', 'Получено', 'Проверка', 'Задача', 'Ошибка']}>
+        <Table headers={['Процесс', 'Статус', 'Ожидалось', 'Получено', 'Проверка', 'Задача', 'Ошибка']}
+          mobile={{ status: 1, wide: [6] }}>
           {data.steps.map((step) => <tr key={step.processId}>
             <td><strong>{processName(reference, step.processId)}</strong></td><td><Status value={step.status} /></td>
             <td><Value value={step.expected} digits={2} /></td><td><Value value={step.actual} digits={2} /></td>
             <td><CheckState passed={step.passed} /></td><td><JobLink id={step.jobId} /></td>
-            <td>{step.error ? <>{typograph(step.error.message)} <span className="mono">({step.error.code})</span></> : '—'}</td>
+            <td className={step.error ? undefined : 'record-empty'}>{step.error ? <>{typograph(step.error.message)} <span className="mono">({step.error.code})</span></> : '—'}</td>
           </tr>)}
         </Table>
       </div>;

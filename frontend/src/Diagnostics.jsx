@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import {
   api, BackButton, Button, Empty, ErrorText, Field, formatDate, formatNumber, go, href, JobLink, modes,
   Panel, QueryState, RefreshButton, Scope, Status, Table, terminal, usePoll, Value,
@@ -61,7 +61,7 @@ function DateField({ value, onChange, cases, required }) {
 function ConflictList({ conflicts }) {
   if (!conflicts.length) return <Empty>Сейчас конфликтов ресурсов нет.</Empty>
   return (
-    <Table headers={['Ресурс', 'Область', 'Запрошен', 'Занят', 'Блокирующая задача']}>
+    <Table headers={['Ресурс', 'Область', 'Запрошен', 'Занят', 'Блокирующая задача']} mobile={{ title: 0 }}>
       {conflicts.map((conflict, index) => (
         <tr key={`${conflict.resourceKey}-${conflict.blockingJobId}-${index}`}>
           <td className="mono">{conflict.resourceKey}</td>
@@ -96,7 +96,7 @@ function LoadChart({ points }) {
       )}
       <details className="diagnostic-details">
         <summary>Показания по&nbsp;минутам</summary>
-        <Table headers={['Минута,\u00a0МСК', 'Суммарное время работы,\u00a0с']}>
+        <Table headers={['Минута,\u00a0МСК', 'Суммарное время работы,\u00a0с']} mobile={false}>
           {points.map((point, index) => (
             <tr key={point.minute}><td>{minutes[index]}</td><td>{loadNumber.format(point.busySeconds)}</td></tr>
           ))}
@@ -130,7 +130,7 @@ function ActiveLoadChart({ points, minutes, activeMinutes }) {
           </div>
           {points.map((point, index) => (
             <div className="diagnostic-bar-slot" key={point.minute}
-              title={`${minutes[index]}\u00a0МСК · ${loadDuration(point.busySeconds * multiplier, unit)}`}>
+              title={`${minutes[index]}\u00a0МСК — ${loadDuration(point.busySeconds * multiplier, unit)}`}>
               {point.busySeconds > 0 && (
                 <div className="diagnostic-bar" style={{ height: `${point.busySeconds * multiplier * 100 / ticks[0]}%` }} />
               )}
@@ -146,6 +146,36 @@ function ActiveLoadChart({ points, minutes, activeMinutes }) {
         </div>
       </div>
     </>
+  )
+}
+
+function RecentEvents({ events }) {
+  const [expanded, setExpanded] = useState(false)
+  const listId = useId()
+  return (
+    <Panel title="Последние события">
+      {events.length ? (
+        <>
+          <div className="diagnostic-recent-list" id={listId} data-expanded={expanded}>
+            <Table headers={['Событие', 'Задача', 'Время']} mobile={{ title: 0 }}>
+              {events.map(event => (
+                <tr key={event.id}>
+                  <td>{eventNames[event.type] ?? event.type}</td>
+                  <td><JobLink id={event.job_id} /></td>
+                  <td>{formatDate(event.occurred)}</td>
+                </tr>
+              ))}
+            </Table>
+          </div>
+          {events.length > 4 && (
+            <Button className="diagnostic-recent-toggle" variant="ghost"
+              aria-controls={listId} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+              {expanded ? 'Свернуть события' : `Все события (${events.length})`}
+            </Button>
+          )}
+        </>
+      ) : <Empty>В&nbsp;журнале пока нет событий.</Empty>}
+    </Panel>
   )
 }
 
@@ -169,7 +199,7 @@ function Report({ processes }) {
           <div className="grid-2 diagnostic-columns">
             <Panel title="Статистика процессов" subtitle={`Запуски за\u00a0${report.days}\u00a0дн.`} className="diagnostic-processes">
               {report.processes.length ? (
-                <Table headers={['Процесс', 'Запуски', 'Ошибки', 'Ждали ресурс', 'Средний расчёт,\u00a0с']}>
+                <Table headers={['Процесс', 'Запуски', 'Ошибки', 'Ждали ресурс', 'Средний расчёт,\u00a0с']} mobile={{ title: 0 }}>
                   {report.processes.map(row => (
                     <tr key={row.process}>
                       <td>{typograph(processName(processes, row.process))}</td>
@@ -181,7 +211,7 @@ function Report({ processes }) {
             </Panel>
             <Panel title="Ожидание по ресурсам" subtitle={`Наблюдения за\u00a0${report.days}\u00a0дн.`}>
               {report.resources.length ? (
-                <Table headers={['Ресурс', 'Ожидание,\u00a0с', 'Доля времени ожидания']}>
+                <Table headers={['Ресурс', 'Ожидание,\u00a0с', 'Доля времени ожидания']} mobile={{ title: 0 }}>
                   {report.resources.map(row => (
                     <tr key={row.resourceKey}>
                       <td className="mono">{row.resourceKey}</td><td>{formatNumber(row.waitSeconds)}</td><td>{percent(row.shareOfWait)}</td>
@@ -191,18 +221,7 @@ function Report({ processes }) {
               ) : <Empty>Ожидание ресурсов за&nbsp;этот период не&nbsp;зафиксировано.</Empty>}
             </Panel>
           </div>
-          <Panel title="Последние события">
-            {report.recentEvents.length ? (
-              <Table headers={['Событие', 'Задача', 'Время']}>
-                {report.recentEvents.map(event => (
-                  <tr key={event.id}>
-                    <td>{eventNames[event.type] ?? event.type}</td>
-                    <td><JobLink id={event.job_id} /></td><td>{formatDate(event.occurred)}</td>
-                  </tr>
-                ))}
-              </Table>
-            ) : <Empty>В&nbsp;журнале пока нет событий.</Empty>}
-          </Panel>
+          <RecentEvents events={report.recentEvents} />
         </div>
       )}
     </QueryState>
@@ -226,14 +245,14 @@ function Forecast({ processes, cases }) {
 
   return (
     <Panel title="Прогноз конфликтов">
-      <form onSubmit={showForecast} className="stack">
+      <form onSubmit={showForecast} className="stack diagnostic-form">
         <div className="form-grid">
           <Field label="Процесс">
             <select required value={processId} onChange={event => setProcess(event.target.value)}>
               {!processes.length && <option value="">Список процессов пуст</option>}
               {processes.map(item => (
                 <option value={item.processId} key={item.processId}>
-                  {typograph(item.name)}{!item.isActive && ' · выключен'}
+                  {typograph(item.name)}{!item.isActive && ' (выключен)'}
                 </option>
               ))}
             </select>
@@ -245,7 +264,7 @@ function Forecast({ processes, cases }) {
       {request && (
         <div className="stack diagnostic-section">
           {(request.processId !== processId || request.calculationDate !== calculationDate) && (
-            <p className="muted">{typograph(processName(processes, request.processId))} · {formatDate(request.calculationDate)}</p>
+            <p className="muted">{typograph(processName(processes, request.processId))} за&nbsp;{formatDate(request.calculationDate)}</p>
           )}
           <QueryState query={query}>
             {forecast => (
@@ -329,7 +348,7 @@ function Ask({ cases }) {
 
   return (
     <Panel title="Вопрос по данным">
-      <form onSubmit={ask} className="stack">
+      <form onSubmit={ask} className="stack diagnostic-form">
         <Field label="Вопрос">
           <textarea required maxLength={500} rows={3} value={question} onChange={event => setQuestion(event.target.value)} placeholder="Почему задача ждёт?" />
         </Field>
@@ -406,7 +425,7 @@ function lastDemo() {
 }
 
 function rememberDemo(id) {
-  try { sessionStorage.setItem(demoStoreKey, id) } catch {}
+  try { sessionStorage.setItem(demoStoreKey, id) } catch { /* navigation still opens the result */ }
 }
 
 function DemoLaunch({ id, active }) {
@@ -474,11 +493,11 @@ function DemoLaunch({ id, active }) {
 function DemoJobs({ batch }) {
   return (
     <div className="diagnostic-demo-jobs">
-      <Table headers={['Задача', 'Источник', 'Статус', 'Результат']}>
+      <Table headers={['Задача', 'Источник', 'Статус', 'Результат']} mobile={{ title: 0, status: 2 }}>
         {batch.jobs.map((jobId, index) => {
           const job = batch.items.find(item => item.jobId === jobId)
           const role = demoRoles[index]
-          const label = `${role.letter} · ${role.title}`
+          const label = `${role.letter} — ${role.title}`
           return (
             <tr key={jobId}>
               <th scope="row">{job ? <JobLink id={jobId}>{label}</JobLink> : label}</th>
@@ -549,7 +568,7 @@ function DemoTimeline({ jobs, events }) {
                 <div
                   key={event.eventId}
                   className="diagnostic-point diagnostic-marker"
-                  title={`#${event.eventId} · ${eventNames[event.type] ?? event.type}`}
+                  title={`Событие №\u00a0${event.eventId} — ${eventNames[event.type] ?? event.type}`}
                   style={{ left: place(seconds(event.occurredAt)) }}
                 />
               ))}
@@ -636,9 +655,10 @@ function Demo({ id }) {
                 <DemoTimeline jobs={batch.jobs} events={events} />
                 <DemoEvidence batch={batch} events={events} />
               </Panel>
-              <Panel title="Журнал демонстрации">
+              <Panel title="Журнал демонстрации" className="diagnostic-demo-log">
                 {events.length ? (
-                  <Table headers={['№', 'Время', 'Задача', 'Событие', 'Статус']}>
+                  <Table headers={['№', 'Время', 'Задача', 'Событие', 'Статус']}
+                    mobile={{ title: 3, status: 4, wide: [1], labels: ['№ события', 'Время', 'Задача', 'Событие', 'Статус'] }}>
                     {events.map(event => (
                       <tr key={event.eventId}>
                         <td className="mono">{event.eventId}</td>
@@ -667,8 +687,8 @@ function Demo({ id }) {
 }
 
 const policies = [
-  ['fifo', 'FIFO · строгая очередь'],
-  ['managed', 'RiskFlow · управление ресурсами'],
+  ['fifo', 'FIFO (строгая очередь)'],
+  ['managed', 'RiskFlow (управление ресурсами)'],
   ['unmanaged', 'Без управления ресурсами'],
 ]
 
@@ -683,7 +703,7 @@ function Simulation() {
   ]
   return (
     <Panel title="Симуляция">
-      <form className="stack" onSubmit={event => { event.preventDefault(); setRequest({ ...values }) }}>
+      <form className="stack diagnostic-form diagnostic-simulation-form" onSubmit={event => { event.preventDefault(); setRequest({ ...values }) }}>
         <div className="form-grid">
           {fields.map(({ key, label, min, max }) => (
             <Field key={key} label={label}>
@@ -706,9 +726,10 @@ function Simulation() {
           {result => (
             <>
               {fields.some(({ key }) => values[key] !== request[key]) && (
-                <p className="muted">Зерно {result.seed} · задач {result.requests.length} · мест {request.slots}</p>
+                <p className="muted">Зерно {result.seed}, задач {result.requests.length}, мест {request.slots}</p>
               )}
-              <Table headers={['Политика', 'Длительность, такты', 'Суммарное ожидание, такты', '95-й процентиль ожидания, такты', 'Конфликтующие пары']}>
+              <Table headers={['Политика', 'Длительность, такты', 'Суммарное ожидание, такты', '95-й процентиль ожидания, такты', 'Конфликтующие пары']}
+                mobile={{ title: 0 }}>
                 {policies.map(([key, label]) => (
                   <tr key={key}>
                     <th scope="row">{label}</th>
@@ -739,9 +760,10 @@ function Benchmarks() {
             {items.map(result => (
               <div key={result.id} className="stack">
                 <p className="muted">
-                  {formatDate(result.created)} · задач {result.report.workload.length} · мест {result.report.slots} · базовая задержка {formatNumber(result.report.delaySeconds)}&nbsp;с
+                  {formatDate(result.created)}, задач {result.report.workload.length}, мест {result.report.slots}, базовая задержка {formatNumber(result.report.delaySeconds)}&nbsp;с
                 </p>
-                <Table headers={['Прогон', 'Политика', 'Длительность,\u00a0с', '95-й процентиль ожидания,\u00a0с', 'Конфликтующие пары']}>
+                <Table headers={['Прогон', 'Политика', 'Длительность,\u00a0с', '95-й процентиль ожидания,\u00a0с', 'Конфликтующие пары']}
+                  mobile={{ title: 1 }}>
                   {result.report.pairs.flatMap((pair, index) => Object.entries(pair).map(([policy, metrics]) => (
                     <tr key={`${index}-${policy}`}>
                       <td>{index + 1}</td>
