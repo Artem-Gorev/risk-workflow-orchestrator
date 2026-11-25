@@ -1,7 +1,7 @@
 import base64
 import json
 from datetime import UTC, date, datetime
-from typing import Annotated, Literal, get_args
+from typing import Annotated, Any, Literal, get_args
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request, Response
@@ -34,7 +34,7 @@ from .models import (
 )
 
 router = APIRouter(prefix="/api/v1", responses={code: {"model": Failure} for code in (401, 503)})
-WRITE_ERRORS = {code: {"model": Failure} for code in (403, 409, 415)}
+WRITE_ERRORS: dict[int | str, dict[str, Any]] = {code: {"model": Failure} for code in (403, 409, 415)}
 PageSize = Annotated[int, Query(ge=1, le=200)]
 
 

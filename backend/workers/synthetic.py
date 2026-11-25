@@ -178,7 +178,7 @@ def case_expectations(resources, factors):
         amounts["risk-summary"] = amounts["credit-risk"] + market + amounts["liquidity-risk"]
     else:
         errors = {"market-risk": "INPUT_NOT_FOUND", "risk-summary": "INPUT_NOT_FOUND"}
-    expected = {code: f"{value:.2f}" for code, value in amounts.items()}
+    expected: dict[str, str | dict[str, str]] = {code: f"{value:.2f}" for code, value in amounts.items()}
     credit, market = resources["parameter_inputs"]
     expected["refresh-parameters"] = {
         "creditFactor": f"{Decimal(credit) / 100:.2f}",

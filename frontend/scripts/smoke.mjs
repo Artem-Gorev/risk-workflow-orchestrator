@@ -55,7 +55,7 @@ async function run() {
       const output = job.result?.outputs.find((item) => item.resourceKey === 'liquidity_risk');
       assert.equal(output?.value, scenario.expected[processId]);
 
-      // Быстрая задача может покинуть очередь до первого запроса списка.
+      // Check the event history because a fast job may leave the queue before the first poll.
       const { payload: events } = await request(`/events?jobId=${encodeURIComponent(jobId)}`);
       assert.ok(events.items.some((event) => event.type === 'JOB_QUEUED'));
       assert.ok(events.items.some((event) => event.type === 'JOB_SUCCEEDED'));

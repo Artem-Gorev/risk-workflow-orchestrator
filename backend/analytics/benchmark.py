@@ -1,7 +1,8 @@
+from contextlib import closing
 from dataclasses import replace
 from math import ceil
 from time import monotonic, sleep
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from backend.config import BackendConfig
 from backend.orchestrator.isolation import provision
@@ -16,7 +17,8 @@ WORKLOAD = ("credit-risk", "credit-risk", "market-risk", "liquidity-risk") * 3
 def measure(conn):
     rows = query(conn, "SELECT * FROM jobs ORDER BY seq").all()
     events = query(conn, "SELECT * FROM job_events ORDER BY id").all()
-    active, overlaps = {}, 0
+    active: dict[UUID, list[dict]] = {}
+    overlaps = 0
     for event in events:
         if event.type == "JOB_RESERVED":
             accesses = event.payload["reservedAccesses"]
@@ -58,21 +60,19 @@ def measure(conn):
 def run_policy(config, store, policy):
     schema = "risk_bench_" + uuid4().hex
     url = provision(store, schema)
-    runtime = Runtime(
-        replace(
-            config,
-            database_url=url,
-            worker_slots=2,
-            daily_enabled=False,
-            worker_delay=0.20,
-            scheduler_poll=0.05,
-            dispatcher_poll=0.02,
-        )
+    bench_config = replace(
+        config,
+        database_url=url,
+        worker_slots=2,
+        daily_enabled=False,
+        worker_delay=0.20,
+        scheduler_poll=0.05,
+        dispatcher_poll=0.02,
     )
-    runtime.jobs.fifo = policy == "fifo"
     try:
-        runtime.open()
-        try:
+        with closing(Runtime(bench_config)) as runtime:
+            runtime.jobs.fifo = policy == "fifo"
+            runtime.open()
             with runtime.storage.transaction() as conn:
                 for code in WORKLOAD:
                     runtime.jobs.submit(
@@ -89,8 +89,6 @@ def run_policy(config, store, policy):
                         return measure(conn)
                 sleep(0.05)
             raise TimeoutError("Истекло время эксперимента")
-        finally:
-            runtime.close()
     finally:
         with store.engine.begin() as conn:
             query(conn, f'DROP SCHEMA "{schema}" CASCADE')

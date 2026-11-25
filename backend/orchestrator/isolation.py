@@ -1,9 +1,9 @@
 import re
 from hashlib import sha256
 
-from alembic import command
-from alembic.config import Config
 from sqlalchemy.engine import make_url
+
+from backend.migrations import upgrade_database
 
 from .storage import query
 
@@ -20,9 +20,7 @@ def provision(storage, name):
     with storage.engine.begin() as conn:
         query(conn, f'CREATE SCHEMA IF NOT EXISTS "{name}"')
         query(conn, f'SET LOCAL search_path TO "{name}"')
-        cfg = Config("alembic.ini")
-        cfg.attributes["connection"] = conn
-        command.upgrade(cfg, "head")
+        upgrade_database(conn)
     return make_url(storage.engine.url).update_query_dict({"options": f"-csearch_path={name}"})
 
 

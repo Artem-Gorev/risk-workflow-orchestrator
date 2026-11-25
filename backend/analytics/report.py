@@ -1,6 +1,7 @@
-from collections import Counter, defaultdict
+from collections import defaultdict
+from uuid import UUID
 
-from backend.orchestrator.resources import conflicts
+from backend.orchestrator.resources import conflicts, resolve_accesses
 from backend.orchestrator.storage import query
 
 
@@ -57,8 +58,9 @@ def report(conn):
         'JOB_WAIT_REASON_CHANGED')
         AND until>now()-interval '7 days'""",
     ).all()
-    delays, affected = Counter(), defaultdict(set)
-    total_wait = 0
+    delays: defaultdict[str, float] = defaultdict(float)
+    affected: defaultdict[str, set[UUID]] = defaultdict(set)
+    total_wait = 0.0
     for row in rows:
         duration = max(0, float(row.seconds))
         total_wait += duration
@@ -108,7 +110,7 @@ def report(conn):
             "waitSeconds": round(v, 3),
             "shareOfWait": v / total_wait if total_wait else 0,
         }
-        for k, v in delays.most_common()
+        for k, v in sorted(delays.items(), key=lambda item: item[1], reverse=True)
     ]
     return {
         "days": 7,
@@ -125,14 +127,7 @@ def report(conn):
 
 
 def forecast(conn, definition, day):
-    accesses = [
-        {
-            "resourceKey": a["resourceKey"],
-            "mode": a["mode"],
-            "scope": {"type": "GLOBAL"} if a["scope"] == "GLOBAL" else {"type": "DATE", "date": str(day)},
-        }
-        for a in definition.access_templates
-    ]
+    accesses = resolve_accesses(definition.access_templates, day)
     owners = [
         {
             "resourceKey": r.resource_key,

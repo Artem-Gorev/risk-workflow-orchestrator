@@ -19,6 +19,7 @@ from backend.api.models import (
 from backend.orchestrator.catalog import latest
 from backend.orchestrator.demo import create_demo, demo_status
 from backend.orchestrator.isolation import job_storage
+from backend.orchestrator.resources import conflicts, resolve_accesses
 from backend.orchestrator.storage import DomainError, query
 from backend.workers.synthetic import case_expectations, cases_for, configured_period
 
@@ -116,26 +117,16 @@ def ask(body: Question, request: Request):
                 "evidence": [dict(row) for row in waiting],
             }
         if any(word in question for word in ("паралл", "одноврем", "запуст", "совмест")):
-            from backend.orchestrator.resources import conflicts
-
             definitions = query(
                 conn,
                 "SELECT DISTINCT ON(process_id) * FROM processes ORDER BY process_id,version DESC",
             ).all()
-            chosen, owners = [], []
+            chosen: list[str] = []
+            owners: list[dict] = []
             for d in definitions:
                 if not d.active or forecast(conn, d, body.calculationDate)["conflictsNow"]:
                     continue
-                accesses = [
-                    {
-                        "resourceKey": a["resourceKey"],
-                        "scope": {"type": "GLOBAL"}
-                        if a["scope"] == "GLOBAL"
-                        else {"type": "DATE", "date": str(body.calculationDate)},
-                        "mode": a["mode"],
-                    }
-                    for a in d.access_templates
-                ]
+                accesses = resolve_accesses(d.access_templates, body.calculationDate)
                 if not conflicts(accesses, owners):
                     chosen.append(d.process_id)
                     owners.extend(dict(a, jobId=d.process_id) for a in accesses)

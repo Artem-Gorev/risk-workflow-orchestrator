@@ -2,10 +2,12 @@ import os
 from dataclasses import dataclass, field
 from math import isfinite
 
+from sqlalchemy.engine import URL
+
 
 @dataclass(frozen=True, slots=True)
 class BackendConfig:
-    database_url: str = field(repr=False)
+    database_url: str | URL = field(repr=False)
     worker_slots: int = 2
     dispatcher_poll: float = 1
     scheduler_poll: float = 1

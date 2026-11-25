@@ -1,8 +1,9 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import UTC, datetime
 from threading import Event, Thread
 from time import monotonic
+from uuid import UUID
 
 from backend.config import BackendConfig
 from backend.orchestrator.batches import advance
@@ -31,7 +32,8 @@ class Runtime:
         )
         self.thread = Thread(target=self.run, name="dispatcher")
         self.healthy = False
-        self.in_flight = {}
+        self.in_flight: dict[UUID, Future[None]] = {}
+        self.demo: Runtime | None = None
 
     def open(self):
         self.storage.seed()
@@ -53,7 +55,8 @@ class Runtime:
     def close(self):
         self.stop.set()
         self.wake.set()
-        self.thread.join()
+        if self.thread.ident is not None:
+            self.thread.join()
         self.pool.shutdown(wait=True)
         self.worker.compute.close()
         self.storage.engine.dispose()
@@ -75,7 +78,7 @@ class Runtime:
             self.dispatch(job)
 
     def run(self):
-        next_tick = 0
+        next_tick = 0.0
         while not self.stop.is_set():
             self.wake.clear()
             try:
