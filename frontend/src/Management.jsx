@@ -475,7 +475,7 @@ function scheduleDraft(row) {
   return {
     code: row?.id ?? '',
     processId: row?.process ?? '',
-    frequency: row?.weekday == null ? 'DAILY' : 'WEEKLY',
+    frequency: row && !row.daily ? 'ONCE' : row?.weekday == null ? 'DAILY' : 'WEEKLY',
     localTime: row?.local_time.slice(0, 5) ?? '02:00',
     weekday: row?.weekday ?? 0,
     enabled: row?.enabled ?? true,
@@ -491,6 +491,7 @@ function ScheduleEditor({ row, processes, onSaved }) {
   const [draft, setDraft] = useState(() => scheduleDraft(row));
   const [stored, setStored] = useState(row);
   const save = useSave();
+  const once = draft.frequency === 'ONCE';
 
   function set(key, value) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -500,12 +501,14 @@ function ScheduleEditor({ row, processes, onSaved }) {
     event.preventDefault();
     const { code, ...definition } = draft;
     definition.weekday = definition.frequency === 'WEEKLY' ? Number(definition.weekday) : null;
+    if (once) delete definition.localTime;
     save.execute(
       () => api(`/schedules/${encodeURIComponent(code)}`, { method: 'PUT', body: definition }),
       ({ scheduleId, nextFireAt }) => {
         setStored({ id: scheduleId });
         onSaved();
-        return nextFireAt ? `Расписание сохранено. Следующий запуск ${formatDate(nextFireAt)}` : 'Расписание сохранено и выключено';
+        if (nextFireAt) return `Расписание сохранено. Следующий запуск ${formatDate(nextFireAt)}`;
+        return definition.enabled ? 'Расписание сохранено. Запланированных запусков нет' : 'Расписание сохранено и выключено';
       },
     );
   }
@@ -518,7 +521,8 @@ function ScheduleEditor({ row, processes, onSaved }) {
         setStored(record);
         const titles = processes.map((process) => [process.processId, process.name]);
         const name = new Map(titles).get(record.process) ?? record.process;
-        return `Расписание на сервере — ${name}, ${scheduleFrequency(record).toLocaleLowerCase('ru')}, ${record.local_time.slice(0, 5)}\u00a0МСК, ${record.enabled ? 'включено' : 'выключено'}`;
+        const time = record.daily ? `, ${record.local_time.slice(0, 5)}\u00a0МСК` : '';
+        return `Расписание на сервере — ${name}, ${scheduleFrequency(record).toLocaleLowerCase('ru')}${time}, ${record.enabled ? 'включено' : 'выключено'}`;
       }
       return `Расписание ${draft.code} пока отсутствует на сервере`;
     }, true);
@@ -541,16 +545,20 @@ function ScheduleEditor({ row, processes, onSaved }) {
             </select>
           </Field>
           <Field label="Периодичность">
-            <select disabled={save.pending} value={draft.frequency} onChange={(event) => set('frequency', event.target.value)}>
+            {once ? <input readOnly value="Однократно" /> :
+              <select disabled={save.pending} value={draft.frequency} onChange={(event) => set('frequency', event.target.value)}>
               <option value="DAILY">Ежедневно</option>
               <option value="WEEKLY">Еженедельно</option>
-            </select>
+              </select>}
           </Field>
-          <Field label="Время запуска, МСК" hint="Формат ЧЧ:ММ">
+          {once ? <>
+            <Field label="Расчётная дата"><input readOnly value={row.day ? formatDate(row.day) : '—'} /></Field>
+            <Field label="Плановое время"><input readOnly value={row.due ? formatDate(row.due) : '—'} /></Field>
+          </> : <Field label="Время запуска, МСК" hint="Формат ЧЧ:ММ">
             <input inputMode="numeric" placeholder="ЧЧ:ММ" maxLength={5} pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]"
               required disabled={save.pending} value={draft.localTime}
               onChange={(event) => set('localTime', event.target.value.replace(/^(\d{2})(\d{1,2})$/, '$1:$2'))} />
-          </Field>
+          </Field>}
           {draft.frequency === 'WEEKLY' && (
             <Field label="День недели">
               <select disabled={save.pending} value={draft.weekday} onChange={(event) => set('weekday', Number(event.target.value))}>
@@ -609,8 +617,8 @@ function Schedules({ reference }) {
                   <td className="mono">{row.id}</td>
                   <td>{names.get(row.process) ?? row.process}</td>
                   <td>{scheduleFrequency(row)}</td>
-                  <td>{row.local_time.slice(0, 5)}</td>
-                  <td><ManagementDate value={row.due} /></td>
+                  <td>{row.daily ? row.local_time.slice(0, 5) : '—'}</td>
+                  <td><ManagementDate value={row.enabled ? row.due : null} /></td>
                   <td>{row.enabled ? 'Включено' : 'Выключено'}</td>
                   <td>{managed ? <span className="muted">Управляется стендом</span> :
                     <Button variant="ghost" className="management-edit" onClick={() => edit(row)}
