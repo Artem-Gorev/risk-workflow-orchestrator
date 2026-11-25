@@ -2,12 +2,14 @@ import fcntl
 import logging
 from contextlib import asynccontextmanager, closing, contextmanager
 from dataclasses import replace
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.concurrency import contextmanager_in_threadpool
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.api.insights import router as insights
@@ -117,6 +119,7 @@ def live():
 
 
 @app.get("/health/ready")
+@app.get("/api/v1/health/ready", include_in_schema=False)
 def ready(request: Request):
     runtime = request.app.state.runtime
     with runtime.storage.engine.connect() as conn:
@@ -124,3 +127,19 @@ def ready(request: Request):
     if any(not r.thread.is_alive() or not r.healthy for r in (runtime, runtime.demo)):
         return error_response(503, "NOT_READY", "Диспетчер временно недоступен")
     return {"status": "ready"}
+
+
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+FRONTEND_ASSETS = FRONTEND_DIST / "assets"
+if FRONTEND_ASSETS.is_dir():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_ASSETS), name="assets")
+
+
+@app.get("/", include_in_schema=False)
+def dashboard():
+    index = FRONTEND_DIST / "index.html"
+    if not index.is_file():
+        return error_response(
+            503, "FRONTEND_NOT_BUILT", "Соберите панель командой npm --prefix frontend run build"
+        )
+    return FileResponse(index, headers={"Cache-Control": "no-cache"})

@@ -1,0 +1,106 @@
+.date-control { display: grid; gap: 6px; min-width: 0; }
+.date-input-row { position: relative; min-width: 0; }
+
+.date-control .date-input {
+  padding-inline-end: calc(var(--control-inset) + 30px);
+  font-variant-numeric: tabular-nums;
+}
+
+.date-toggle {
+  position: absolute;
+  inset-block: 4px;
+  inset-inline-end: 4px;
+  inline-size: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--muted);
+  background: transparent;
+  transition: color var(--motion), background-color var(--motion);
+}
+
+.date-toggle:hover:not(:disabled),
+.date-toggle[aria-expanded="true"] { color: var(--ink); background: var(--control-hover); }
+
+.date-popup {
+  position: fixed;
+  z-index: 30;
+  width: min(19.25rem, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 12px 34px rgb(29 31 35 / 14%), 0 2px 8px rgb(29 31 35 / 5%);
+}
+
+.date-month-nav {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.date-month-label {
+  text-align: center;
+  font-size: .9rem;
+  font-weight: 660;
+  font-variant-numeric: tabular-nums;
+}
+
+.date-month-nav button,
+.date-popup-actions button,
+.date-day {
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--ink);
+  background: transparent;
+  font-size: .83rem;
+  transition: color var(--motion), background-color var(--motion), border-color var(--motion);
+}
+
+.date-month-nav button { width: 34px; height: 34px; padding: 0; color: var(--muted); }
+.date-month-nav button:disabled { opacity: .36; }
+.date-month-nav button:hover:not(:disabled),
+.date-popup-actions button:hover,
+.date-day:hover:not(:disabled) { background: var(--control-hover); }
+
+.date-grid { display: grid; gap: 2px; }
+.date-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.date-weekdays { color: var(--muted); font-size: .71rem; font-weight: 640; text-align: center; }
+.date-weekdays span { padding: 7px 0 6px; }
+
+.date-day {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.date-day[data-outside] { color: var(--muted); }
+.date-day[aria-current="date"] { border-color: var(--accent); }
+.date-week [aria-selected="true"] .date-day {
+  color: var(--surface);
+  background: var(--lilac-solid);
+  border-color: var(--lilac-solid);
+}
+.date-day:disabled { opacity: .32; }
+.date-popup button:focus-visible { outline-offset: -1px; }
+.date-week [aria-selected="true"] .date-day:focus-visible { outline-color: var(--surface); outline-offset: -3px; }
+
+.date-popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+.date-popup-actions button { padding: 6px 9px; font-weight: 620; }
+.date-error { color: var(--muted); font-size: .77rem; line-height: 1.4; }
+.date-control .date-input[aria-invalid="true"] { border-color: var(--muted); }

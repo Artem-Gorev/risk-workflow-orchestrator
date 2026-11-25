@@ -137,6 +137,7 @@ def test_concurrent_delivery_and_paging(db):
 def test_errors_and_restart(db):
     with TestClient(app) as client:
         assert client.get("/health/ready").status_code == 200
+        assert client.get("/api/v1/health/ready").json() == {"status": "ready"}
         assert submit(client, day="2026-02-30").status_code == 422
         assert submit(client, process="undefined").status_code == 422
         assert client.get("/api/v1/events").json()["items"] == []

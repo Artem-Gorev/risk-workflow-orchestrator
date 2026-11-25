@@ -17,4 +17,4 @@ if [ ! -f .env ]; then
 fi
 
 docker compose up -d --build --wait
-printf '\nSwagger UI RiskFlow: http://127.0.0.1:8000/docs\n'
+printf '\nПанель RiskFlow: http://127.0.0.1:8000/\nSwagger UI: http://127.0.0.1:8000/docs\n'
