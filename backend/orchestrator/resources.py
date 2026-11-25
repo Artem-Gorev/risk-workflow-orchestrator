@@ -1,6 +1,19 @@
 from collections import defaultdict
 
 
+def resolve_accesses(templates, day):
+    return [
+        {
+            "resourceKey": template["resourceKey"],
+            "mode": template["mode"],
+            "scope": {"type": "GLOBAL"}
+            if template["scope"] == "GLOBAL"
+            else {"type": "DATE", "date": str(day)},
+        }
+        for template in templates
+    ]
+
+
 def conflicts(requested, active):
     owners_by_resource = defaultdict(list)
     for owner in active:

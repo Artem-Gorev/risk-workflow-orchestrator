@@ -4,7 +4,7 @@ from backend.workers.result import valid_output
 from backend.workers.synthetic import in_synthetic_period, period_label
 
 from .catalog import latest
-from .resources import conflicts
+from .resources import conflicts, resolve_accesses
 from .storage import DomainError, encode, load_inputs, query
 
 
@@ -88,14 +88,7 @@ class JobService:
                 self.remember(conn, delivery, ongoing.id, priority, trigger)
                 self.event(conn, ongoing, "JOB_TRIGGER_JOINED", {"trigger": trigger})
                 return ongoing, False
-        accesses = [
-            {
-                "resourceKey": a["resourceKey"],
-                "mode": a["mode"],
-                "scope": {"type": "GLOBAL"} if a["scope"] == "GLOBAL" else {"type": "DATE", "date": str(day)},
-            }
-            for a in definition.access_templates
-        ]
+        accesses = resolve_accesses(definition.access_templates, day)
         job = query(
             conn,
             """INSERT INTO jobs(id,process,day,trigger,accesses,delivery,status,version,priority,
@@ -167,7 +160,7 @@ class JobService:
                         retry_at<=clock_timestamp()) ORDER BY greatest(1,priority-floor(extract(epoch FROM
                         now()-queued)/30)),seq""",
             ).all()
-            protected = []
+            protected: list[dict] = []
             for job in candidates:
                 blocked = conflicts(job.accesses, active)
                 ahead = conflicts(job.accesses, protected) if not blocked else []

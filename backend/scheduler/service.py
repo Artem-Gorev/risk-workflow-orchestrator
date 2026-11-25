@@ -27,6 +27,7 @@ def deliver_demo(service, conn, slot, trigger, now):
     ).one()
     if demo.first_status in ("QUEUED", "WAITING", "STARTING"):
         return
+    reason: str | None
     try:
         if demo.first_status != "RUNNING":
             raise DomainError(

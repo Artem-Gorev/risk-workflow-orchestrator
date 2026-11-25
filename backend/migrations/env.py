@@ -13,8 +13,10 @@ def migrate(connection):
 connection = context.config.attributes.get("connection")
 if connection is None:
     engine = create_engine(os.environ["DATABASE_URL"])
-    with engine.begin() as connection:
-        migrate(connection)
-    engine.dispose()
+    try:
+        with engine.begin() as connection:
+            migrate(connection)
+    finally:
+        engine.dispose()
 else:
     migrate(connection)

@@ -1,12 +1,22 @@
 from math import ceil
 from random import Random
+from typing import TypedDict
 
 from backend.orchestrator.resources import conflicts
 
 
+class SimulatedTask(TypedDict):
+    id: str
+    process: str
+    user: str
+    arrival: int
+    duration: int
+    access: dict[str, str | dict[str, str]]
+
+
 def simulate(seed, count, slots):
     rng = Random(seed)
-    requests = []
+    requests: list[SimulatedTask] = []
     for i in range(count):
         resource = rng.choice(["exposures", "positions", "cash"])
         mode = rng.choice(["READ", "WRITE"])
@@ -27,7 +37,7 @@ def simulate(seed, count, slots):
 
     def run(policy):
         pending = requests.copy()
-        active = []
+        active: list[tuple[int, SimulatedTask]] = []
         violations = 0
         waits = []
         clock = 0

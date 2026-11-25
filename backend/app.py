@@ -1,11 +1,9 @@
 import fcntl
 import logging
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, closing, contextmanager
 from dataclasses import replace
 from uuid import uuid4
 
-from alembic import command
-from alembic.config import Config
 from fastapi import FastAPI, Request
 from fastapi.concurrency import contextmanager_in_threadpool
 from fastapi.exceptions import RequestValidationError
@@ -19,6 +17,7 @@ from backend.api.routes import router
 from backend.api.verification import router as verification
 from backend.config import BackendConfig
 from backend.logging import record
+from backend.migrations import upgrade_database
 from backend.orchestrator.isolation import demo_schema, provision
 from backend.orchestrator.storage import DomainError, query
 from backend.runtime import Runtime
@@ -29,11 +28,10 @@ def running_backend():
     config = BackendConfig.from_env()
     with open(config.lock_path, "a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        command.upgrade(Config("alembic.ini"), "head")
-        runtime = Runtime(config)
-        url = provision(runtime.storage, demo_schema(runtime.storage))
-        runtime.demo = Runtime(
-            replace(
+        upgrade_database()
+        with closing(Runtime(config)) as runtime:
+            url = provision(runtime.storage, demo_schema(runtime.storage))
+            demo_config = replace(
                 config,
                 database_url=url,
                 worker_slots=2,
@@ -42,16 +40,11 @@ def running_backend():
                 scheduler_poll=0.1,
                 dispatcher_poll=0.1,
             )
-        )
-        runtime.open()
-        try:
-            runtime.demo.open()
-            try:
+            with closing(Runtime(demo_config)) as demo:
+                runtime.demo = demo
+                runtime.open()
+                demo.open()
                 yield runtime
-            finally:
-                runtime.demo.close()
-        finally:
-            runtime.close()
 
 
 @asynccontextmanager
