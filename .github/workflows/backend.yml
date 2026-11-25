@@ -33,7 +33,7 @@ jobs:
       - name: Run main tests
         run: python -m pytest tests/ -q
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       POSTGRES_PASSWORD: riskflow-browser-ci
     steps:
