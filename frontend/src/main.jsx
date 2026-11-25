@@ -32,12 +32,8 @@ const titles = {
 const managementPages = ['processes', 'resources', 'schedules', 'audit'];
 
 async function checkReadiness(signal) {
-  const response = await fetch('/health/ready', {
-    cache: 'no-store',
-    headers: { Accept: 'application/json' },
-    signal: AbortSignal.any([signal, AbortSignal.timeout(4500)]),
-  });
-  if (!response.ok || (await response.json())?.status !== 'ready') {
+  const readiness = await api('/health/ready', { signal, timeoutMs: 4500 });
+  if (readiness.status !== 'ready') {
     throw new Error('API недоступен');
   }
   return true;

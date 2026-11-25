@@ -32,26 +32,41 @@ export function formatNumber(value, digits) {
   }).format(Number(value));
 }
 
-export async function api(path, { method = 'GET', body, signal, headers } = {}) {
+export async function api(path, { method = 'GET', body, signal, headers, timeoutMs = 12000 } = {}) {
+  const controller = new AbortController();
+  const abortRequest = () => controller.abort();
+  let timedOut = false;
+  if (signal?.aborted) abortRequest();
+  else signal?.addEventListener('abort', abortRequest, { once: true });
+  const timer = setTimeout(() => {
+    timedOut = true;
+    abortRequest();
+  }, timeoutMs);
+
   let response;
-  const timeout = AbortSignal.timeout(12000);
-  const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+  let data;
   try {
     response = await fetch('/api/v1' + path, {
-      method, signal: requestSignal, cache: 'no-store',
+      method, signal: controller.signal, cache: 'no-store',
       headers: { Accept: 'application/json', ...(method !== 'GET' && { 'Content-Type': 'application/json' }), ...headers },
       body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
     });
+    data = await response.json().catch((error) => {
+      if (controller.signal.aborted) throw error;
+      return null;
+    });
   } catch (error) {
     if (signal?.aborted) throw error;
-    const message = timeout.aborted
+    const message = timedOut
       ? 'API не ответил вовремя. Повторите запрос.'
       : 'Связь с API прервана. Проверьте подключение и повторите запрос.';
     throw Object.assign(new Error(message), {
       code: 'NETWORK_ERROR', uncertain: true, cause: error,
     });
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', abortRequest);
   }
-  const data = await response.json().catch(() => null);
   if (response.ok && data !== null) return data;
   const messages = {
     401: 'Для доступа требуется вход.',
