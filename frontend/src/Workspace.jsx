@@ -233,6 +233,13 @@ export function Jobs({ view, initialStatus, reference }) {
   </div>;
 }
 
+function launchBatch(write, calculationDate, factorRevision) {
+  write.run({
+    path: '/batches', idempotent: true, body: { calculationDate, factorRevision },
+    onSuccess: ({ batchId }) => go('batch', batchId),
+  });
+}
+
 export function BatchLaunch({ reference }) {
   const { cases, revisions } = reference;
   const [draft, setDraft] = useDraft('riskflow.batch');
@@ -244,10 +251,7 @@ export function BatchLaunch({ reference }) {
   function start(event) {
     event.preventDefault();
     if (!date || !selected) return;
-    write.run({
-      path: '/batches', body: { calculationDate: date, factorRevision: Number(revision) },
-      onSuccess: ({ batchId }) => go('batch', batchId),
-    });
+    launchBatch(write, date, Number(revision));
   }
 
   return <div className="grid-2 batch-launch">
@@ -263,9 +267,9 @@ export function BatchLaunch({ reference }) {
             {revisions.map((item) => <option key={item.revision} value={item.revision}>Ревизия {item.revision}</option>)}
           </select>
         </Field>
-        <ErrorText error={write.failure?.error} />
-        {write.failure?.error.uncertain && <p className="muted">{shortCopy('Ответ о создании серии не получен. Проверьте активные задачи перед повторным запуском')} <a href={href('active')}>Открыть активные задачи</a></p>}
-        <div><Button type="submit" variant="primary" disabled={!cases || !selected || !date || write.pending}>
+        <ErrorText error={write.failure?.error} retry={write.retry} />
+        <div><Button type="submit" variant="primary"
+          disabled={!cases || !selected || !date || write.pending || write.failure?.error.uncertain}>
           {write.pending ? 'Создаём серию…' : 'Запустить серию'}
         </Button></div>
       </form>
@@ -279,8 +283,9 @@ export function BatchLaunch({ reference }) {
 }
 
 export function Batch({ id, reference }) {
+  const write = useWrite();
   const query = usePoll((signal) => api('/batches/' + encodeURIComponent(id), { signal }), [id],
-    { until: (data) => terminal(data.status) });
+    { until: (data) => terminal(data.status) && data.steps.every(step => !step.jobId || terminal(step.status)) });
   return <div className="detail-page">
     <BackButton to={href('batches')} />
     <QueryState query={query}>{(data) => {
@@ -295,6 +300,13 @@ export function Batch({ id, reference }) {
           <Status value={data.status} />
         </div>
         {data.error && <ErrorText error={{ message: data.error }} />}
+        {terminal(data.status) && <div className="actions">
+          <Button disabled={write.pending || write.failure?.error.uncertain}
+            onClick={() => launchBatch(write, data.calculationDate, data.factorRevision)}>
+            {write.pending ? 'Создаём серию…' : 'Запустить серию заново'}
+          </Button>
+        </div>}
+        <ErrorText error={write.failure?.error} retry={write.retry} />
         {summary?.actual != null && <div className="result-banner">
           <div><span>Итог сводки</span><strong><Value value={summary.actual} digits={2} /></strong></div>
           <CheckState passed={summary.passed} />

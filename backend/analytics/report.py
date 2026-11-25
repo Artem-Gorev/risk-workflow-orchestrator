@@ -89,12 +89,23 @@ def report(conn):
     load = list(
         query(
             conn,
-            """SELECT t AS minute,coalesce(sum(extract(epoch FROM least(coalesce(j.finished,now()),t+interval
-                '1 minute',now())
-        -greatest(j.started,t))) FILTER(WHERE j.id IS NOT NULL),0) AS "busySeconds"
-        FROM generate_series(date_trunc('minute',now())-interval '59 minutes',date_trunc('minute',now()),
-        interval '1 minute') t
-        LEFT JOIN jobs j ON j.started<t+interval '1 minute' AND coalesce(j.finished,now())>t
+            """WITH buckets AS (
+            SELECT generate_series(date_trunc('minute',now())-interval '59 minutes',
+                                   date_trunc('minute',now()),interval '1 minute') AS t
+        ), transitions AS (
+            SELECT e.type,e.occurred,
+                lead(e.occurred,1,coalesce(j.finished,now())) OVER (PARTITION BY e.job_id ORDER BY e.id)
+                AS ended
+            FROM job_events e JOIN jobs j ON j.id=e.job_id
+            WHERE e.type IN ('JOB_STARTED','JOB_RETRY_SCHEDULED','JOB_FAILED','JOB_CANCELLED',
+                             'JOB_SUCCEEDED')
+            AND (j.finished IS NULL OR j.finished>(SELECT min(t) FROM buckets))
+        )
+        SELECT t AS minute,coalesce(sum(extract(epoch FROM least(a.ended,t+interval '1 minute',now())
+            -greatest(a.occurred,t))),0) AS "busySeconds"
+        FROM buckets
+        LEFT JOIN transitions a ON a.type='JOB_STARTED' AND a.occurred<least(t+interval '1 minute',now())
+            AND least(a.ended,now())>t AND a.ended>=a.occurred
         GROUP BY t ORDER BY t""",
         ).mappings()
     )

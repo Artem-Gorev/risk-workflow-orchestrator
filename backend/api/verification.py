@@ -1,21 +1,32 @@
-from datetime import date
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Request, Response
 from pydantic import Field
 
-from backend.api.models import Empty, Failure, IdempotencyKey, Receipt
+from backend.api.models import (
+    CONFLICT_ERRORS,
+    CalculationDate,
+    Empty,
+    Failure,
+    IdempotencyKey,
+    Receipt,
+    ScheduleHistorySlot,
+)
 from backend.orchestrator.batches import batch_record, create_batch
 from backend.orchestrator.isolation import job_storage
 from backend.orchestrator.snapshots import HANDLER_VERSION
-from backend.orchestrator.storage import DomainError, encode, query
+from backend.orchestrator.storage import DomainError, encode, query, timestamp
 
 router = APIRouter(prefix="/api/v1")
 
 
 class BatchRequest(Empty):
-    calculationDate: date
+    calculationDate: CalculationDate
     factorRevision: int = Field(ge=1)
+
+
+class BatchReceipt(Empty):
+    batchId: UUID
 
 
 @router.get("/factor-revisions")
@@ -24,23 +35,28 @@ def factors(request: Request):
         return {"items": list(query(conn, "SELECT * FROM factor_history ORDER BY revision DESC").mappings())}
 
 
-@router.post("/batches", status_code=201)
-def batch(body: BatchRequest, request: Request):
-    return create_batch(
+@router.post("/batches", status_code=201, response_model=BatchReceipt,
+             responses={200: {"model": BatchReceipt}, **CONFLICT_ERRORS})
+def batch(body: BatchRequest, request: Request, response: Response, key: IdempotencyKey = None):
+    batch_id, created = create_batch(
         request.app.state.runtime,
         body.calculationDate,
         body.factorRevision,
         request.state.actor,
+        key,
     )
+    if not created:
+        response.status_code = 200
+    return {"batchId": batch_id}
 
 
-@router.get("/batches/{batch_id}")
+@router.get("/batches/{batch_id}", responses={404: {"model": Failure}})
 def read_batch(batch_id: UUID, request: Request):
     with request.app.state.runtime.storage.engine.connect() as conn:
         return batch_record(conn, batch_id)
 
 
-@router.get("/jobs/{job_id}/snapshot")
+@router.get("/jobs/{job_id}/snapshot", responses={404: {"model": Failure}})
 def snapshot(job_id: UUID, request: Request):
     with job_storage(request.app.state.runtime, job_id).engine.connect() as conn:
         row = query(conn, "SELECT snapshot FROM jobs WHERE id=:id", id=job_id).first()
@@ -53,7 +69,7 @@ def snapshot(job_id: UUID, request: Request):
     "/jobs/{job_id}/replay",
     status_code=201,
     response_model=Receipt,
-    responses={200: {"model": Receipt}, 409: {"model": Failure}},
+    responses={200: {"model": Receipt}, **CONFLICT_ERRORS},
 )
 def replay(job_id: UUID, body: Empty, request: Request, response: Response, key: IdempotencyKey = None):
     runtime = request.app.state.runtime
@@ -100,7 +116,7 @@ def replay(job_id: UUID, body: Empty, request: Request, response: Response, key:
     return {"jobId": row.id, "status": row.status, "queuedAt": row.queued}
 
 
-@router.get("/schedule-history")
+@router.get("/schedule-history", response_model=dict[str, list[ScheduleHistorySlot]])
 def schedule_history(request: Request, before: int | None = None):
     with request.app.state.runtime.storage.engine.connect() as conn:
         return {
@@ -133,4 +149,4 @@ def benchmarks(request: Request, compact: bool = False):
                 for result in pair.values():
                     result.pop("events", None)
                     result.pop("jobs", None)
-    return {"items": rows}
+    return {"items": [dict(row) | {"created": timestamp(row["created"])} for row in rows]}

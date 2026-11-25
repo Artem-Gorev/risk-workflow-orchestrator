@@ -58,7 +58,7 @@ async def lifespan(app):
 
 app = FastAPI(title="Risk Workflow Orchestrator", version="1.0", lifespan=lifespan)
 for api_router in (router, management, insights, verification):
-    app.include_router(api_router, responses={422: {"model": Failure}})
+    app.include_router(api_router, responses={code: {"model": Failure} for code in (401, 422, 503)})
 
 
 def error_response(status, code, message):
@@ -118,7 +118,7 @@ def live():
     return {"status": "live"}
 
 
-@app.get("/health/ready")
+@app.get("/health/ready", responses={503: {"model": Failure}})
 @app.get("/api/v1/health/ready", include_in_schema=False)
 def ready(request: Request):
     runtime = request.app.state.runtime

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from backend.workers import catalog
 
-from .storage import DomainError, encode, load_inputs, query
+from .storage import DomainError, encode, load_inputs, query, timestamp
 
 HANDLER_VERSION = sha256(Path(catalog.__file__).read_bytes()).hexdigest()
 
@@ -12,6 +12,8 @@ def freeze(conn, job, values, versions):
     snapshot = {
         "handler": job.handler or job.process,
         "handlerVersion": HANDLER_VERSION,
+        "attempt": job.attempt,
+        "startedAt": timestamp(job.started),
         "inputs": values,
         "versions": versions,
     }
@@ -28,20 +30,6 @@ def execution_inputs(conn, job):
     snapshot = job.snapshot
     if snapshot is None:
         values, versions = load_inputs(conn, job)
-        if job.batch_id and "risk_parameters" in values:
-            factor = query(
-                conn,
-                """SELECT f.* FROM risk_batches b JOIN factor_history f
-                ON f.revision=b.factor_revision WHERE b.id=:id""",
-                id=job.batch_id,
-            ).one()
-            values["risk_parameters"] = factor.value
-            for item in versions:
-                if item["resourceKey"] == "risk_parameters":
-                    item.update(
-                        revision=factor.revision,
-                        sourceJobId=str(factor.source) if factor.source else None,
-                    )
         if (job.handler or job.process) == "risk-summary":
             revisions = set()
             for item in versions:

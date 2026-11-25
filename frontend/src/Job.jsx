@@ -70,7 +70,7 @@ export function Job({ id, reference }) {
           {['STARTING', 'RUNNING'].includes(job.status) && <Button variant="danger" disabled={write.pending} onClick={() => act('stop')}>
             Остановить
           </Button>}
-          {!active && <Button disabled={write.pending} onClick={() => act('restart')}>Запустить снова</Button>}
+          {!active && !job.batchId && <Button disabled={write.pending} onClick={() => act('restart')}>Запустить снова</Button>}
           {job.status === 'SUCCEEDED' && job.hasSnapshot && <Button variant="primary" disabled={write.pending} onClick={() => act('replay')}>
             Воспроизвести по снимку
           </Button>}

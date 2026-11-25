@@ -1,4 +1,3 @@
-from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Request
@@ -7,10 +6,14 @@ from pydantic import Field
 from backend.analytics.report import dependencies, forecast, report
 from backend.analytics.simulation import simulate
 from backend.api.models import (
+    CONFLICT_ERRORS,
+    WRITE_ERRORS,
     AnalyticsReport,
+    CalculationDate,
     DemoBatch,
     DemoStatus,
     Empty,
+    Failure,
     Forecast,
     Insight,
     SimulationResult,
@@ -69,7 +72,7 @@ def analytics(request: Request):
 
 
 @router.get("/analytics/forecast", response_model=Forecast)
-def predict(processId: str, calculationDate: date, request: Request):
+def predict(processId: str, calculationDate: CalculationDate, request: Request):
     with request.app.state.runtime.storage.engine.connect() as conn:
         return forecast(conn, latest(conn, processId), calculationDate)
 
@@ -77,10 +80,10 @@ def predict(processId: str, calculationDate: date, request: Request):
 class Question(Empty):
     question: str = Field(min_length=1, max_length=500)
     jobId: UUID | None = None
-    calculationDate: date | None = None
+    calculationDate: CalculationDate | None = None
 
 
-@router.post("/analytics/ask", response_model=Insight)
+@router.post("/analytics/ask", response_model=Insight, responses={404: {"model": Failure}, **WRITE_ERRORS})
 def ask(body: Question, request: Request):
     body.calculationDate = body.calculationDate or configured_period()[0]
     question = body.question.casefold()
@@ -197,12 +200,15 @@ def simulation(
     return simulate(seed, count, slots)
 
 
-@router.post("/demo", status_code=201, response_model=DemoBatch)
+@router.post("/demo", status_code=201, response_model=DemoBatch, responses=CONFLICT_ERRORS)
 def demo(body: Empty, request: Request):
     return create_demo(request.app.state.runtime.demo, request.state.actor)
 
 
-@router.get("/demo/{batch_id}", response_model=DemoStatus, response_model_exclude_unset=True)
+@router.get(
+    "/demo/{batch_id}", response_model=DemoStatus, response_model_exclude_unset=True,
+    responses={404: {"model": Failure}},
+)
 def read_demo(batch_id: UUID, request: Request):
     runtime = request.app.state.runtime
     with runtime.demo.storage.engine.connect() as conn:
